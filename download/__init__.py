@@ -8,6 +8,7 @@ import os
 
 from flask import Flask
 
+from . import db
 from .views import download_service
 
 def create_flask_app():
@@ -17,6 +18,8 @@ def create_flask_app():
     app.config.from_object('download.config')
     if 'DOWNLOAD_SERVICE_SETTINGS' in os.environ:
         app.config.from_envvar('DOWNLOAD_SERVICE_SETTINGS')
+
+    db.init_app(app)
 
     app.register_blueprint(download_service)
 

@@ -30,6 +30,15 @@ FLASK_RUN_PORT=80
 DOWNLOAD_SERVICE_SETTINGS=/etc/fairdata-download-service/custom-settings.cfg
 ```
 
+### Initialize application
+
+After installation, database has to be initialized if one is not already
+available. This can be done by running command with Flask:
+
+```
+flask db init
+```
+
 ### Run development server
 
 Development server can be run with Flask:

@@ -5,6 +5,7 @@ import tempfile
 import pytest
 
 from download import create_flask_app
+from download.db import init_db
 
 @pytest.fixture
 def cache_dir():
@@ -17,17 +18,48 @@ def cache_dir():
     shutil.rmtree(cache_dir)
 
 @pytest.fixture
-def flask_app(cache_dir):
+def db():
+    db_fd, db = tempfile.mkstemp()
+
+    yield db
+
+    os.close(db_fd)
+    os.unlink(db)
+
+@pytest.fixture
+def flask_app(cache_dir, db):
     flask_app = create_flask_app()
 
     flask_app.config['TESTING'] = True
     flask_app.config['DOWNLOAD_CACHE_DIR'] = cache_dir
+    flask_app.config['DATABASE_FILE'] = db
+
+    with flask_app.app_context():
+        init_db()
 
     return flask_app
 
 @pytest.fixture
 def client(flask_app):
     return flask_app.test_client()
+
+@pytest.fixture
+def runner(flask_app):
+    return flask_app.test_cli_runner()
+
+@pytest.fixture
+def recorder():
+    class Recorder(object):
+        called = False
+
+    return Recorder()
+
+@pytest.fixture
+def mock_init_db(monkeypatch, recorder):
+    def fake_init_db():
+        recorder.called = True
+
+    monkeypatch.setattr('download.db.init_db', fake_init_db)
 
 @pytest.fixture
 def not_found_dataset():

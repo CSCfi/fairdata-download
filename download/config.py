@@ -8,3 +8,6 @@
 """
 # Volume mounts
 DOWNLOAD_CACHE_DIR = 'download-cache'
+
+# Database
+DATABASE_FILE = 'download.db'
