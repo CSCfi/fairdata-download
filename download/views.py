@@ -6,7 +6,12 @@
 """
 import os.path
 
-from flask import Blueprint, current_app, jsonify, request, send_file
+from flask import Blueprint, abort, current_app, jsonify, request, send_file
+from pika.spec import BasicProperties
+
+from .db import get_db
+from .mq import get_mq
+from .utils import format_datetime
 
 download_service = Blueprint('download', __name__)
 
@@ -20,21 +25,18 @@ def get_request():
     """
     dataset = request.args.get('dataset', '')
 
+    request_row = get_db().cursor().execute(
+        'SELECT status, initiated FROM request WHERE dataset_id = ?',
+        (dataset,)
+    ).fetchone()
+
+    if request_row is None:
+        abort(404)
+
     return jsonify(
         dataset=dataset,
-        package="5d0395179e01d178338732a27741915.zip",
-        created="2019-08-23T18:38:03Z",
-        size=2397293872,
-        checksum="sha256:e01d178338732a277419d0395179e01d178338732a277419159e01d178338732a2774191",
-        partial=[
-            {
-                "scope": ["/Licence.txt"],
-                "package": "5d0395179e01d178338732a27741915_01d47419.zip",
-                "created": "2019-08-23T18:38:03Z",
-                "size": 84892382,
-                "checksum": "sha256:e01d178338732a277419d0395179e01d178338732a277419159e01d178338732a2774191"
-            }
-        ]
+        status=request_row['status'],
+        initiated=format_datetime(request_row['initiated']),
     )
 
 @download_service.route('/request', methods=['POST'])
@@ -44,9 +46,48 @@ def post_request():
     Creates a new file generation request if no such already exists.
     """
     request_data = request.get_json()
+    dataset = request_data['dataset']
+
+    db_conn = get_db()
+    db_cursor = db_conn.cursor()
+
+    created = False
+
+    request_row = db_cursor.execute(
+        'SELECT status, initiated FROM request WHERE dataset_id = ?',
+        (dataset,)
+    ).fetchone()
+
+    if request_row is None:
+        db_cursor.execute(
+            'INSERT INTO request (dataset_id) VALUES (?)', (dataset,)
+        )
+        db_conn.commit()
+
+        request_row = db_cursor.execute(
+            'SELECT status, initiated FROM request WHERE dataset_id = ?',
+            (dataset,)
+        ).fetchone()
+
+        get_mq().channel().basic_publish(
+            exchange='requests',
+            routing_key='requests',
+            body=dataset,
+            properties=BasicProperties(delivery_mode=2))
+
+        created = True
+        current_app.logger.info(
+            "Created a new file generation request for dataset '%s'" % dataset)
+    else:
+        current_app.logger.info(
+            "Found request with status '%s' for dataset '%s'" %
+            (request_row['status'], dataset))
+
     return jsonify(
-        dataset=request_data['dataset'],
-        status="request created"
+        created=created,
+        dataset=dataset,
+        initiated=format_datetime(request_row['initiated']),
+        status=request_row['status']
     )
 
 @download_service.route('/authorize', methods=['POST'])
@@ -85,3 +126,9 @@ def download():
     # TODO: replace send_file with streamed content:
     # https://flask.palletsprojects.com/en/1.1.x/patterns/streaming/
     return send_file(filename, as_attachment=True)
+
+@download_service.errorhandler(404)
+def resource_not_found(error):
+    """Error handler for HTTP 404."""
+    return jsonify(
+        error="Requested resource was not found in the server"), 404

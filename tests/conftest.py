@@ -1,11 +1,12 @@
 import os
 import shutil
+import sqlite3
 import tempfile
 
 import pytest
 
 from download import create_flask_app
-from download.db import init_db
+from download.db import init_db, close_db, get_db
 from download.mq import init_mq
 
 @pytest.fixture
@@ -76,9 +77,39 @@ def not_found_dataset():
     return {'pid': TEST_NOT_FOUND_DATASET}
 
 @pytest.fixture
+def pending_dataset(flask_app):
+    TEST_PENDING_DATASET = 'test_dataset_02'
+
+    with flask_app.app_context():
+        # Add database record
+        db_conn = get_db()
+        db_cursor = db_conn.cursor()
+
+        db_cursor.execute(
+            "INSERT INTO request (dataset_id, status, initiated) "
+            "VALUES (?, 'pending', '2020-07-20 13:03:21')",
+            (TEST_PENDING_DATASET,)
+        )
+        db_conn.commit()
+
+    return {'pid': TEST_PENDING_DATASET}
+
+@pytest.fixture
 def available_dataset(flask_app):
     TEST_AVAILABLE_DATASET = 'test_dataset_04'
     TEST_AVAILABLE_PACKAGE = TEST_AVAILABLE_DATASET + '.zip'
+
+    with flask_app.app_context():
+        # Add database record
+        db_conn = get_db()
+        db_cursor = db_conn.cursor()
+
+        db_cursor.execute(
+            "INSERT INTO request (dataset_id, status, initiated) "
+            "VALUES (?, 'available', '2020-07-20 13:03:21')",
+            (TEST_AVAILABLE_DATASET,)
+        )
+        db_conn.commit()
 
     # Add cache file
     test_package = os.path.join(
