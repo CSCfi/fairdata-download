@@ -8,7 +8,7 @@ import os
 
 from flask import Flask
 
-from . import db
+from . import db, mq
 from .views import download_service
 
 def create_flask_app():
@@ -20,6 +20,7 @@ def create_flask_app():
         app.config.from_envvar('DOWNLOAD_SERVICE_SETTINGS')
 
     db.init_app(app)
+    mq.init_app(app)
 
     app.register_blueprint(download_service)
 

@@ -39,6 +39,12 @@ available. This can be done by running command with Flask:
 flask db init
 ```
 
+Similarly, server uses message queue, which can be initialized by running:
+
+```
+flask mq init
+```
+
 ### Run development server
 
 Development server can be run with Flask:

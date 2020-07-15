@@ -11,3 +11,9 @@ DOWNLOAD_CACHE_DIR = 'download-cache'
 
 # Database
 DATABASE_FILE = 'download.db'
+
+# Message queue
+MQ_HOST = 'localhost'
+MQ_VHOST = 'download'
+MQ_USER = 'download'
+MQ_PASS = 'download'

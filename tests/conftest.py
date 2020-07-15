@@ -6,6 +6,7 @@ import pytest
 
 from download import create_flask_app
 from download.db import init_db
+from download.mq import init_mq
 
 @pytest.fixture
 def cache_dir():
@@ -60,6 +61,13 @@ def mock_init_db(monkeypatch, recorder):
         recorder.called = True
 
     monkeypatch.setattr('download.db.init_db', fake_init_db)
+
+@pytest.fixture
+def mock_init_mq(monkeypatch, recorder):
+    def fake_init_mq():
+        recorder.called = True
+
+    monkeypatch.setattr('download.mq.init_mq', fake_init_mq)
 
 @pytest.fixture
 def not_found_dataset():
