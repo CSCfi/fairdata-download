@@ -8,6 +8,7 @@
 """
 # Volume mounts
 DOWNLOAD_CACHE_DIR = 'download-cache'
+IDA_DATA_ROOT = 'ida-data'
 
 # Database
 DATABASE_FILE = 'download.db'

@@ -33,11 +33,43 @@ def get_request():
     if request_row is None:
         abort(404)
 
-    return jsonify(
-        dataset=dataset,
-        status=request_row['status'],
-        initiated=format_datetime(request_row['initiated']),
-    )
+    response = {}
+    response['dataset'] = dataset
+    response['status'] = request_row['status']
+    response['initiated'] = format_datetime(request_row['initiated'])
+
+    if request_row['status'] == 'generating':
+        package_row = get_db().cursor().execute(
+            'SELECT '
+            '  filename, '
+            '  generation_started '
+            'FROM package '
+            'WHERE dataset_id = ?',
+            (dataset,)
+        ).fetchone()
+
+        response['generation_started'] = format_datetime(package_row['generation_started'])
+        response['package'] = package_row['filename']
+    elif request_row['status'] == 'available':
+        package_row = get_db().cursor().execute(
+            'SELECT '
+            '  filename, '
+            '  size_bytes, '
+            '  checksum, '
+            '  generation_completed, '
+            '  generation_started '
+            'FROM package '
+            'WHERE dataset_id = ?',
+            (dataset,)
+        ).fetchone()
+
+        response['generation_started'] = format_datetime(package_row['generation_started'])
+        response['package'] = package_row['filename']
+        response['size_bytes'] = package_row['size_bytes']
+        response['generation_completed'] = format_datetime(package_row['generation_completed'])
+        response['checksum'] = package_row['checksum']
+
+    return jsonify(response)
 
 @download_service.route('/request', methods=['POST'])
 def post_request():
@@ -121,7 +153,7 @@ def download():
     filename = os.path.join(
         current_app.config['DOWNLOAD_CACHE_DIR'],
         'datasets',
-        package)
+        dataset + '.zip')
 
     # TODO: replace send_file with streamed content:
     # https://flask.palletsprojects.com/en/1.1.x/patterns/streaming/

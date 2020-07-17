@@ -8,7 +8,7 @@ import os
 
 from flask import Flask
 
-from . import db, mq
+from . import db, generator, mq
 from .views import download_service
 
 def create_flask_app():
@@ -21,6 +21,7 @@ def create_flask_app():
 
     db.init_app(app)
     mq.init_app(app)
+    generator.init_app(app)
 
     app.register_blueprint(download_service)
 

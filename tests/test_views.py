@@ -16,6 +16,13 @@ class TestGetRequest:
         response = client.get(self.endpoint, query_string=query_string)
         assert response.status_code == 200
 
+    def test_generating(self, client, generating_dataset):
+        query_string = {
+            'dataset': generating_dataset['pid']
+        }
+        response = client.get(self.endpoint, query_string=query_string)
+        assert response.status_code == 200
+
     def test_available(self, client, available_dataset):
         query_string = {
             'dataset': available_dataset['pid']
@@ -62,7 +69,7 @@ class TestGetDownload:
 
     def test_available(self, client, available_dataset):
         query_string = {
-            'package': available_dataset['package']
+            'dataset': available_dataset['pid']
         }
         response = client.get(self.endpoint, query_string=query_string)
         assert response.status_code == 200
