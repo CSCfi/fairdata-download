@@ -4,9 +4,12 @@
 
     Module for views used by Fairdata Download Service.
 """
+from datetime import datetime, timedelta
 import os.path
 
 from flask import Blueprint, abort, current_app, jsonify, request, send_file
+from jwt import decode, encode, ExpiredSignatureError
+from jwt.exceptions import DecodeError
 from pika.spec import BasicProperties
 
 from .db import get_db
@@ -131,11 +134,24 @@ def authorize():
     """
     request_data = request.get_json()
 
+    dataset = request_data['dataset']
+    package = request_data['package']
+
+    # Create JWT
+    jwt_payload = {
+        'exp': datetime.utcnow()
+               + timedelta(minutes=current_app.config['JWT_TTL']),
+        'dataset': dataset,
+        'package': package
+    }
+
+    jwt_token = encode(
+        jwt_payload,
+        current_app.config['JWT_SECRET'],
+        algorithm=current_app.config['JWT_ALGORITHM'])
+
     return jsonify(
-        authorized="2019-08-29T11:19:03Z",
-        dataset=request_data['dataset'],
-        package=request_data['package'],
-        token="YjY1NDNhYzcxYTk1ZDI2ZTA3ZjA2YzU2"
+        token=jwt_token.decode()
     )
 
 @download_service.route('/download', methods=['GET'])
@@ -146,18 +162,80 @@ def download():
     requests. Trusted access without token to certain internal services (e.g.
     PAS).
     """
-    dataset = request.args.get('dataset', '')
-    package = request.args.get('package', '')
-    token = request.args.get('token', '')
+    # Read auth token from request parameters
+    auth_token = request.args.get('token', None)
+
+    if auth_token is None:
+        # Parse authorization header
+        auth_header = request.headers.get('Authorization')
+        if auth_header is None:
+            abort(401)
+
+        [auth_method, auth_token] = auth_header.split(' ')
+        if auth_method != 'Bearer':
+            current_app.logger.info(
+                "Received invalid autorization method '%s'" % auth_method)
+            abort(401)
+
+    # Check is offered token has been used
+    db_conn = get_db()
+    db_cursor = db_conn.cursor()
+
+    download_row = db_cursor.execute(
+        'SELECT * FROM download WHERE token = ?',
+        (auth_token,)
+    ).fetchone()
+
+    if download_row is not None:
+        current_app.logger.info('Received download request with used token.')
+        abort(401)
+
+    # Decode token
+    try:
+        jwt_payload = decode(
+            auth_token,
+            current_app.config['JWT_SECRET'],
+            algorithms=[current_app.config['JWT_ALGORITHM']])
+    except ExpiredSignatureError:
+        current_app.logger.info('Received download request with expired token.')
+        abort(401)
+    except DecodeError:
+        current_app.logger.info('Unable to decode offered token.')
+        abort(401)
+
+    package = jwt_payload['package']
+
+    # Check if package can be found in database
+    package_row = db_cursor.execute(
+        'SELECT * FROM package WHERE filename = ?',
+        (package,)
+    ).fetchone()
+
+    if package_row is None:
+        current_app.logger.error("Could not find database record for package "
+                                 "'%s' with valid download token" % package)
+        abort(404)
+
+    # Set download record to database
+    db_cursor.execute(
+        'INSERT INTO download (token, filename) VALUES (?, ?)', (auth_token, package)
+    )
+    db_conn.commit()
 
     filename = os.path.join(
         current_app.config['DOWNLOAD_CACHE_DIR'],
         'datasets',
-        dataset + '.zip')
+        package)
 
     # TODO: replace send_file with streamed content:
     # https://flask.palletsprojects.com/en/1.1.x/patterns/streaming/
     return send_file(filename, as_attachment=True)
+
+@download_service.errorhandler(401)
+def unauthorized(error):
+    """Error handler for HTTP 401."""
+    return jsonify(
+        error="Unauthorized to access the resource on the server"), 401
 
 @download_service.errorhandler(404)
 def resource_not_found(error):

@@ -1,5 +1,6 @@
 DROP TABLE IF EXISTS request;
 DROP TABLE IF EXISTS package;
+DROP TABLE IF EXISTS download;
 
 CREATE TABLE request (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -16,5 +17,12 @@ CREATE TABLE package (
   checksum VARCHAR,
   generation_started DATETIME DEFAULT (datetime('now')),
   generation_completed DATETIME
+);
+
+CREATE TABLE download (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  token VARCHAR UNIQUE NOT NULL,
+  filename VARCHAR NOT NULL,
+  download_started DATETIME DEFAULT (datetime('now'))
 );
 

@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 import os
 import shutil
 import sqlite3
@@ -5,6 +6,8 @@ import tempfile
 
 import pytest
 
+from jwt import decode, encode, ExpiredSignatureError
+from jwt.exceptions import DecodeError
 from pika.spec import BasicProperties
 
 from download import create_flask_app
@@ -203,3 +206,55 @@ def available_dataset(flask_app):
         testfile.write('testcontent')
 
     return {'pid': TEST_AVAILABLE_DATASET, 'package': TEST_AVAILABLE_PACKAGE}
+
+@pytest.fixture
+def valid_auth_token(flask_app, available_dataset):
+    expired = datetime.utcnow() + timedelta(hours=flask_app.config['JWT_TTL'])
+    jwt_payload = {
+        'exp': expired,
+        'dataset': available_dataset['pid'],
+        'package': available_dataset['package']
+    }
+
+    jwt_token = encode(
+        jwt_payload,
+        flask_app.config['JWT_SECRET'],
+        algorithm=flask_app.config['JWT_ALGORITHM'])
+
+    return jwt_token.decode()
+
+@pytest.fixture
+def expired_auth_token(flask_app, available_dataset):
+    expired = datetime.utcnow() - timedelta(hours=1)
+    jwt_payload = {
+        'exp': expired,
+        'dataset': available_dataset['pid'],
+        'package': available_dataset['package']
+    }
+
+    jwt_token = encode(
+        jwt_payload,
+        flask_app.config['JWT_SECRET'],
+        algorithm=flask_app.config['JWT_ALGORITHM'])
+
+    return jwt_token.decode()
+
+@pytest.fixture
+def not_found_dataset_auth_token(flask_app, not_found_dataset):
+    expired = datetime.utcnow() + timedelta(hours=flask_app.config['JWT_TTL'])
+    jwt_payload = {
+        'exp': expired,
+        'dataset': not_found_dataset['pid'],
+        'package': not_found_dataset['pid']
+    }
+
+    jwt_token = encode(
+        jwt_payload,
+        flask_app.config['JWT_SECRET'],
+        algorithm=flask_app.config['JWT_ALGORITHM'])
+
+    return jwt_token.decode()
+
+@pytest.fixture
+def invalid_auth_token(flask_app):
+    return 'invalid'
