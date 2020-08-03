@@ -51,17 +51,17 @@ def init_mq():
     """
     channel = get_mq().channel()
 
-    channel.queue_delete('requests')
-    channel.exchange_delete('requests')
+    channel.queue_delete('celery')
+    channel.exchange_delete('celery')
 
     channel.exchange_declare(
-        exchange='requests',
-        exchange_type='fanout',
+        exchange='celery',
+        exchange_type='direct',
         durable=True)
     request_queue = channel.queue_declare(
-        queue='requests',
+        queue='celery',
         durable=True)
-    channel.queue_bind(exchange='requests', queue=request_queue.method.queue)
+    channel.queue_bind(exchange='celery', queue=request_queue.method.queue)
 
     current_app.logger.debug(
         'Initialized new message queue on %s' %

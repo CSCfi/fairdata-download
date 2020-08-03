@@ -1,3 +1,4 @@
+import pytest
 
 class TestGetRequest:
     endpoint = '/request'
@@ -16,9 +17,9 @@ class TestGetRequest:
         response = client.get(self.endpoint, query_string=query_string)
         assert response.status_code == 200
 
-    def test_generating(self, client, generating_dataset):
+    def test_started(self, client, started_dataset):
         query_string = {
-            'dataset': generating_dataset['pid']
+            'dataset': started_dataset['pid']
         }
         response = client.get(self.endpoint, query_string=query_string)
         assert response.status_code == 200
@@ -30,10 +31,11 @@ class TestGetRequest:
         response = client.get(self.endpoint, query_string=query_string)
         assert response.status_code == 200
 
+@pytest.mark.usefixtures("mock_celery")
 class TestPostRequest:
     endpoint = '/request'
 
-    def test_not_found(self, client, not_found_dataset):
+    def test_not_found(self, client, recorder, not_found_dataset):
         json = {
             'dataset': not_found_dataset['pid']
         }
@@ -42,8 +44,9 @@ class TestPostRequest:
 
         assert response.status_code == 200
         assert json_response['created'] is True
+        assert recorder.called is True
 
-    def test_pending(self, client, pending_dataset):
+    def test_pending(self, client, recorder, pending_dataset):
         json = {
             'dataset': pending_dataset['pid']
         }
@@ -52,6 +55,7 @@ class TestPostRequest:
 
         assert response.status_code == 200
         assert json_response['created'] is False
+        assert recorder.called is False
 
 class TestPostAuthorize:
     endpoint = '/authorize'

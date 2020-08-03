@@ -71,6 +71,12 @@ def recorder():
     return Recorder()
 
 @pytest.fixture
+def celery_task():
+    class CeleryTask(object):
+        id = 1
+    return CeleryTask()
+
+@pytest.fixture
 def mock_init_db(monkeypatch, recorder):
     def fake_init_db():
         recorder.called = True
@@ -83,6 +89,15 @@ def mock_init_mq(monkeypatch, recorder):
         recorder.called = True
 
     monkeypatch.setattr('download.mq.init_mq', fake_init_mq)
+
+@pytest.fixture
+def mock_celery(monkeypatch, recorder, celery_task):
+    def mock_generate_task(dataset):
+        recorder.called = True
+        return celery_task
+
+    monkeypatch.setattr(
+        'download.celery.generate_task.delay', mock_generate_task)
 
 @pytest.fixture
 def not_found_dataset():
@@ -99,20 +114,13 @@ def pending_dataset(flask_app):
         db_conn = get_db()
         db_cursor = db_conn.cursor()
 
+        # Packages
         db_cursor.execute(
-            "INSERT INTO request (dataset_id, status, initiated) "
-            "VALUES (?, 'pending', '2020-07-20 13:03:21')",
+            "INSERT INTO package (dataset_id, task_id, initiated) "
+            "VALUES (?, 'task1', '2020-07-20 14:05:21')",
             (TEST_PENDING_DATASET,)
         )
         db_conn.commit()
-
-        # Add queue message
-        channel = get_mq().channel()
-
-        channel.basic_publish(exchange='requests',
-            routing_key='requests',
-            body=TEST_PENDING_DATASET,
-            properties=BasicProperties(delivery_mode = 2))
 
     # Add ida file
     test_dir = os.path.join(flask_app.config['IDA_DATA_ROOT'], TEST_PENDING_DATASET)
@@ -124,9 +132,10 @@ def pending_dataset(flask_app):
     return {'pid': TEST_PENDING_DATASET}
 
 @pytest.fixture
-def generating_dataset(flask_app):
-    TEST_GENERATING_DATASET = 'test_dataset_03'
-    TEST_GENERATING_PACKAGE = TEST_GENERATING_DATASET + '.zip'
+def started_dataset(flask_app):
+    TEST_STARTED_DATASET = 'test_dataset_03'
+    TEST_STARTED_PACKAGE = TEST_STARTED_DATASET + '.zip'
+    TEST_STARTED_TASK = 'test_task_03'
 
     with flask_app.app_context():
         # Add database record
@@ -134,38 +143,32 @@ def generating_dataset(flask_app):
         db_cursor = db_conn.cursor()
 
         db_cursor.execute(
-            "INSERT INTO request (dataset_id, status, initiated) "
-            "VALUES (?, 'generating', '2020-07-20 14:03:21')",
-            (TEST_GENERATING_DATASET,)
+            "INSERT INTO package (dataset_id, task_id, filename, initiated) "
+            "VALUES (?, ?, ?, '2020-07-20 14:05:21')",
+            (TEST_STARTED_DATASET, TEST_STARTED_TASK, TEST_STARTED_PACKAGE)
         )
         db_cursor.execute(
-            "INSERT INTO package (dataset_id, filename, generation_started) "
-            "VALUES (?, ?, '2020-07-20 14:05:21')",
-            (TEST_GENERATING_DATASET, TEST_GENERATING_PACKAGE)
+            "INSERT INTO generate_task (task_id, status) "
+            "VALUES (?, 'STARTED')",
+            (TEST_STARTED_TASK,)
         )
+
         db_conn.commit()
 
-        # Add queue message
-        channel = get_mq().channel()
-
-        channel.basic_publish(exchange='requests',
-            routing_key='requests',
-            body=TEST_GENERATING_DATASET,
-            properties=BasicProperties(delivery_mode = 2))
-
     # Add ida file
-    test_dir = os.path.join(flask_app.config['IDA_DATA_ROOT'], TEST_GENERATING_DATASET)
+    test_dir = os.path.join(flask_app.config['IDA_DATA_ROOT'], TEST_STARTED_DATASET)
     os.makedirs(test_dir)
     test_file = os.path.join(test_dir, 'test.txt')
     with open(test_file, 'w+') as f:
         f.write('test')
 
-    return {'pid': TEST_GENERATING_DATASET}
+    return {'pid': TEST_STARTED_DATASET}
 
 @pytest.fixture
 def available_dataset(flask_app):
     TEST_AVAILABLE_DATASET = 'test_dataset_04'
     TEST_AVAILABLE_PACKAGE = TEST_AVAILABLE_DATASET + '.zip'
+    TEST_AVAILABLE_TASK = 'test_task_04'
 
     with flask_app.app_context():
         # Add database record
@@ -173,24 +176,16 @@ def available_dataset(flask_app):
         db_cursor = db_conn.cursor()
 
         db_cursor.execute(
-            "INSERT INTO request (dataset_id, status, initiated) "
-            "VALUES (?, 'available', '2020-07-20 15:03:21')",
-            (TEST_AVAILABLE_DATASET,)
+            "INSERT INTO package (dataset_id, task_id, filename, initiated, size_bytes, checksum) "
+            "VALUES (?, ?, ?, '2020-07-20 14:05:21', '19070072', 'sha256:98fcf5d6c57d0484bcb50f9c99f4870f5a45c70b62ce6e6edbbcabffa479094e')",
+            (TEST_AVAILABLE_DATASET, TEST_AVAILABLE_TASK, TEST_AVAILABLE_PACKAGE)
         )
         db_cursor.execute(
-            "INSERT INTO package (dataset_id, filename, generation_started, generation_completed, size_bytes, checksum) "
-            "VALUES (?, ?, '2020-07-20 14:05:21', '2020-07-20 14:15:21', '19070072', 'sha256:98fcf5d6c57d0484bcb50f9c99f4870f5a45c70b62ce6e6edbbcabffa479094e')",
-            (TEST_AVAILABLE_DATASET, TEST_AVAILABLE_PACKAGE)
+            "INSERT INTO generate_task (task_id, status, date_done) "
+            "VALUES (?, 'SUCCESS', '2020-08-07 08:44:31.186078')",
+            (TEST_AVAILABLE_TASK,)
         )
         db_conn.commit()
-
-        # Add queue message
-        channel = get_mq().channel()
-
-        channel.basic_publish(exchange='requests',
-            routing_key='requests',
-            body=TEST_AVAILABLE_DATASET,
-            properties=BasicProperties(delivery_mode = 2))
 
     # Add ida file
     test_dir = os.path.join(flask_app.config['IDA_DATA_ROOT'], TEST_AVAILABLE_DATASET)

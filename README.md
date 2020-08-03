@@ -53,6 +53,13 @@ Development server can be run with Flask:
 flask run
 ```
 
+In order to generate compressed files to download, worker application has to be
+started with celery:
+
+```
+celery -A download.celery worker
+```
+
 ### Run tests
 
 Tests can be run with coverage:

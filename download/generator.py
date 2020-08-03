@@ -9,70 +9,32 @@ import os
 import tempfile
 from zipfile import ZipFile, ZIP_DEFLATED
 
+from click import option
 from flask import current_app
 from flask.cli import AppGroup
 
 from .db import get_db, close_db
-from .mq import get_mq, close_mq
 
-def generate():
-    """Generates downloadable compressed file next dataset in request queue."""
-    # Get next request in queue
-    channel = get_mq().channel()
-    method_frame, header_frame, body = channel.basic_get('requests')
-    if not method_frame:
-        current_app.logger.info("No message was found in queue")
-        return
+def generate(dataset):
+    """Generates downloadable compressed file next dataset in request queue.
 
-    dataset = body.decode()
-    current_app.logger.debug(
-        "Found request for dataset '%s' in message queue." % (dataset, ))
-
-    # Check request in database
-    db_conn = get_db()
-    db_cursor = db_conn.cursor()
-
-    request_row = db_cursor.execute(
-        'SELECT status FROM request WHERE dataset_id = ?',
-        (dataset,)
-    ).fetchone()
-
-    if request_row is None:
-        current_app.logger.error(
-            "Found message in queue for dataset '%s' that does not have a request in database" %
-            (dataset,))
-        channel.basic_ack(method_frame.delivery_tag)
-        return
-    if request_row['status'] != 'pending':
-        current_app.logger.error(
-            "Found message in queue for dataset '%s' with request status '%s'" %
-            (dataset, request_row['status']))
-        channel.basic_ack(method_frame.delivery_tag)
-        return
-
-    # Create package record in database
+    :param dataset: ID of dataset for which generated package files belong to
+    """
     output_filehandle, output_filename = tempfile.mkstemp(
         suffix='.zip',
         prefix=dataset + '_',
         dir=os.path.join(current_app.config['DOWNLOAD_CACHE_DIR'], 'datasets'))
 
+    # Update package filename in database
+    db_conn = get_db()
+    db_cursor = db_conn.cursor()
+
     db_cursor.execute(
-        "INSERT INTO package (dataset_id, filename) VALUES (?, ?)",
-        (dataset, os.path.basename(output_filename))
-    )
-    db_cursor.execute(
-        "UPDATE request SET status = 'generating' WHERE dataset_id is ?",
-        (dataset,)
+        "UPDATE package set filename = ? where dataset_id = ?",
+        (os.path.basename(output_filename), dataset)
     )
     db_conn.commit()
     close_db()
-
-    current_app.logger.debug(
-        "Set request status for dataset '%s' to 'generating'." % (dataset, ))
-
-    # Ack request from queue
-    channel.basic_ack(method_frame.delivery_tag)
-    close_mq()
 
     # Generate file
     current_app.logger.info(
@@ -114,29 +76,23 @@ def generate():
         "UPDATE package "
         "SET "
         "  size_bytes = ?, "
-        "  checksum = ?, "
-        "  generation_completed = DATETIME('now', 'localtime') "
+        "  checksum = ? "
         "WHERE filename is ?",
         (output_filesize, output_checksum, os.path.basename(output_filename))
     )
-    db_cursor.execute(
-        "UPDATE request SET status = 'available' WHERE dataset_id is ?",
-        (dataset,)
-    )
     db_conn.commit()
-
-    current_app.logger.debug(
-        "Set request status for dataset '%s' to 'available'." % (dataset, ))
 
 generator_cli = AppGroup('generator', help='Run download file generator operations.')
 
 @generator_cli.command('generate')
-def generate_command():
+@option('--dataset', help='Dataset for which the package is generated')
+def generate_command(dataset):
     """Poll request from message queue and generate download file for requested
     dataset.
 
+    :param dataset: ID of dataset for which generated package files belong to
     """
-    generate()
+    generate(dataset)
 
 def init_app(app):
     """Hooks generator module to given Flask application.

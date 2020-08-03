@@ -10,10 +10,8 @@ import os.path
 from flask import Blueprint, abort, current_app, jsonify, request, send_file
 from jwt import decode, encode, ExpiredSignatureError
 from jwt.exceptions import DecodeError
-from pika.spec import BasicProperties
 
 from .db import get_db
-from .mq import get_mq
 from .utils import format_datetime
 
 download_service = Blueprint('download', __name__)
@@ -28,49 +26,39 @@ def get_request():
     """
     dataset = request.args.get('dataset', '')
 
-    request_row = get_db().cursor().execute(
-        'SELECT status, initiated FROM request WHERE dataset_id = ?',
+    db_conn = get_db()
+    db_cursor = db_conn.cursor()
+
+    task_row = db_cursor.execute(
+        'SELECT '
+        '  p.initiated as initiated, '
+        '  p.filename as filename, '
+        '  p.size_bytes as size_bytes, '
+        '  p.checksum as checksum, '
+        '  t.status as status, '
+        '  t.date_done as date_done '
+        'FROM package p '
+        'LEFT JOIN generate_task t '
+        'ON p.task_id = t.task_id '
+        'WHERE p.dataset_id = ?',
         (dataset,)
     ).fetchone()
 
-    if request_row is None:
+    if task_row is None:
         abort(404)
 
     response = {}
     response['dataset'] = dataset
-    response['status'] = request_row['status']
-    response['initiated'] = format_datetime(request_row['initiated'])
+    response['status'] = task_row['status'] or 'PENDING'
+    response['initiated'] = format_datetime(task_row['initiated'])
 
-    if request_row['status'] == 'generating':
-        package_row = get_db().cursor().execute(
-            'SELECT '
-            '  filename, '
-            '  generation_started '
-            'FROM package '
-            'WHERE dataset_id = ?',
-            (dataset,)
-        ).fetchone()
-
-        response['generation_started'] = format_datetime(package_row['generation_started'])
-        response['package'] = package_row['filename']
-    elif request_row['status'] == 'available':
-        package_row = get_db().cursor().execute(
-            'SELECT '
-            '  filename, '
-            '  size_bytes, '
-            '  checksum, '
-            '  generation_completed, '
-            '  generation_started '
-            'FROM package '
-            'WHERE dataset_id = ?',
-            (dataset,)
-        ).fetchone()
-
-        response['generation_started'] = format_datetime(package_row['generation_started'])
-        response['package'] = package_row['filename']
-        response['size_bytes'] = package_row['size_bytes']
-        response['generation_completed'] = format_datetime(package_row['generation_completed'])
-        response['checksum'] = package_row['checksum']
+    if response['status'] == 'STARTED':
+        response['package'] = task_row['filename']
+    elif response['status'] == 'SUCCESS':
+        response['package'] = task_row['filename']
+        response['size_bytes'] = task_row['size_bytes']
+        response['checksum'] = task_row['checksum']
+        response['generated'] = format_datetime(task_row['date_done'])
 
     return jsonify(response)
 
@@ -88,41 +76,49 @@ def post_request():
 
     created = False
 
-    request_row = db_cursor.execute(
-        'SELECT status, initiated FROM request WHERE dataset_id = ?',
+    task_row = db_cursor.execute(
+        'SELECT p.initiated as initiated, t.status as status '
+        'FROM package p '
+        'LEFT JOIN generate_task t '
+        'ON p.task_id = t.task_id '
+        'WHERE p.dataset_id = ?',
         (dataset,)
     ).fetchone()
 
-    if request_row is None:
+    if task_row is None:
+        from .celery import generate_task
+        task = generate_task.delay(dataset)
         db_cursor.execute(
-            'INSERT INTO request (dataset_id) VALUES (?)', (dataset,)
-        )
+            'INSERT INTO package (dataset_id, task_id) VALUES (?, ?)',
+            (dataset, task.id))
         db_conn.commit()
+        current_app.logger.info(
+            "Created a new file generation task with id '%s' for dataset '%s'"
+            % (task.id, dataset))
 
-        request_row = db_cursor.execute(
-            'SELECT status, initiated FROM request WHERE dataset_id = ?',
+        package_row = db_cursor.execute(
+            'SELECT initiated '
+            'FROM package '
+            'WHERE dataset_id = ?',
             (dataset,)
         ).fetchone()
 
-        get_mq().channel().basic_publish(
-            exchange='requests',
-            routing_key='requests',
-            body=dataset,
-            properties=BasicProperties(delivery_mode=2))
-
         created = True
-        current_app.logger.info(
-            "Created a new file generation request for dataset '%s'" % dataset)
+        task_status = 'PENDING'
+        initiated = format_datetime(package_row['initiated'])
     else:
+        task_status = task_row['status'] or 'PENDING'
+        initiated = format_datetime(task_row['initiated'])
+
         current_app.logger.info(
             "Found request with status '%s' for dataset '%s'" %
-            (request_row['status'], dataset))
+            (task_status, dataset))
 
     return jsonify(
         created=created,
         dataset=dataset,
-        initiated=format_datetime(request_row['initiated']),
-        status=request_row['status']
+        initiated=initiated,
+        status=task_status
     )
 
 @download_service.route('/authorize', methods=['POST'])
