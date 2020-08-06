@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from json import loads
 import os
 import shutil
 import sqlite3
@@ -77,6 +78,26 @@ def celery_task():
     return CeleryTask()
 
 @pytest.fixture
+def metax_response():
+    class MetaxResponse(object):
+        status_code = 200
+        text = '{ "date_modified": "2020-07-04T18:06:24+03:00" }'
+
+        def json(self):
+            return loads(self.text)
+
+    return MetaxResponse()
+
+@pytest.fixture(autouse=True)
+def mock_requests_get(monkeypatch):
+    def skip_requesting_test(url):
+        pytest.skip("Test tried to request resource over network. This is not "
+                    "acceptable and the requesting function should be mocked "
+                    "instead.")
+
+    monkeypatch.setattr('requests.get', skip_requesting_test)
+
+@pytest.fixture
 def mock_init_db(monkeypatch, recorder):
     def fake_init_db():
         recorder.called = True
@@ -98,6 +119,14 @@ def mock_celery(monkeypatch, recorder, celery_task):
 
     monkeypatch.setattr(
         'download.celery.generate_task.delay', mock_generate_task)
+
+@pytest.fixture
+def mock_metax(monkeypatch, recorder, metax_response):
+    def mock_get_metax(resource):
+        recorder.called = True
+        return metax_response
+
+    monkeypatch.setattr('download.metax.get_metax', mock_get_metax)
 
 @pytest.fixture
 def not_found_dataset():

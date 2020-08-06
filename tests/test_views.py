@@ -1,5 +1,7 @@
 import pytest
+import requests
 
+@pytest.mark.usefixtures("mock_metax")
 class TestGetRequest:
     endpoint = '/request'
 
@@ -57,26 +59,30 @@ class TestPostRequest:
         assert json_response['created'] is False
         assert recorder.called is False
 
+@pytest.mark.usefixtures("mock_metax")
 class TestPostAuthorize:
     endpoint = '/authorize'
 
-    def test_available(self, client, available_dataset):
+    def test_available(self, client, recorder, available_dataset):
         json = {
             'dataset': available_dataset['pid'],
             'package': available_dataset['package']
         }
         response = client.post(self.endpoint, json=json)
+        assert recorder.called
         assert response.status_code == 200
 
+@pytest.mark.usefixtures("mock_metax")
 class TestGetDownload:
     endpoint = '/download'
 
-    def test_valid_available(self, client, available_dataset, valid_auth_token):
+    def test_valid_available(self, client, recorder, available_dataset, valid_auth_token):
         client.environ_base['HTTP_AUTHORIZATION'] = 'Bearer ' + valid_auth_token
         query_string = {
             'dataset': available_dataset['pid']
         }
         response = client.get(self.endpoint, query_string=query_string)
+        assert recorder.called
         assert response.status_code == 200
 
         # Verify token is single-use

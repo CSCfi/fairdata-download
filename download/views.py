@@ -10,9 +10,11 @@ import os.path
 from flask import Blueprint, abort, current_app, jsonify, request, send_file
 from jwt import decode, encode, ExpiredSignatureError
 from jwt.exceptions import DecodeError
+from requests.exceptions import ConnectionError
 
 from .db import get_db
-from .utils import format_datetime
+from .metax import get_dataset
+from .utils import convert_utc_timestamp, format_datetime
 
 download_service = Blueprint('download', __name__)
 
@@ -25,6 +27,20 @@ def get_request():
     in the cache or are in the process of being generated.
     """
     dataset = request.args.get('dataset', '')
+
+    # Check dataset metadata in Metax API
+    try:
+        metax_response = get_dataset(dataset)
+    except ConnectionError:
+        abort(500)
+
+    if metax_response.status_code != 200:
+        current_app.logger.error(
+            "Received unexpected status code '%s' from Metax API"
+            % metax_response.status_code)
+        abort(500)
+
+    dataset_modified = datetime.fromisoformat(metax_response.json()['date_modified'])
 
     db_conn = get_db()
     db_cursor = db_conn.cursor()
@@ -40,8 +56,9 @@ def get_request():
         'FROM package p '
         'LEFT JOIN generate_task t '
         'ON p.task_id = t.task_id '
-        'WHERE p.dataset_id = ?',
-        (dataset,)
+        'WHERE p.dataset_id = ? '
+        'AND p.initiated > ?',
+        (dataset, dataset_modified)
     ).fetchone()
 
     if task_row is None:
@@ -133,6 +150,43 @@ def authorize():
     dataset = request_data['dataset']
     package = request_data['package']
 
+    # Check package database record
+    db_conn = get_db()
+    db_cursor = db_conn.cursor()
+
+    package_row = db_cursor.execute(
+        'SELECT '
+        '  initiated '
+        'FROM package p '
+        'WHERE p.dataset_id = ?',
+        (dataset,)
+    ).fetchone()
+
+    if package_row is None:
+        abort(404)
+
+    initiated = convert_utc_timestamp(package_row['initiated'])
+
+    # Check dataset metadata in Metax API
+    try:
+        metax_response = get_dataset(dataset)
+    except ConnectionError:
+        abort(500)
+
+    if metax_response.status_code != 200:
+        current_app.logger.error(
+            "Received unexpected status code '%s' from Metax API"
+            % metax_response.status_code)
+        abort(500)
+
+    metax_modified = datetime.fromisoformat(metax_response.json()['date_modified'])
+
+    if initiated < metax_modified:
+        current_app.logger.error(
+            "Dataset %s has been modified since generation task was initialized"
+            % dataset)
+        abort(409)
+
     # Create JWT
     jwt_payload = {
         'exp': datetime.utcnow()
@@ -199,11 +253,12 @@ def download():
         current_app.logger.info('Unable to decode offered token.')
         abort(401)
 
+    dataset = jwt_payload['dataset']
     package = jwt_payload['package']
 
     # Check if package can be found in database
     package_row = db_cursor.execute(
-        'SELECT * FROM package WHERE filename = ?',
+        'SELECT initiated FROM package WHERE filename = ?',
         (package,)
     ).fetchone()
 
@@ -211,6 +266,28 @@ def download():
         current_app.logger.error("Could not find database record for package "
                                  "'%s' with valid download token" % package)
         abort(404)
+
+    initiated = convert_utc_timestamp(package_row['initiated'])
+
+    # Check dataset metadata in Metax API
+    try:
+        metax_response = get_dataset(dataset)
+    except ConnectionError:
+        abort(500)
+
+    if metax_response.status_code != 200:
+        current_app.logger.error(
+            "Received unexpected status code '%s' from Metax API"
+            % metax_response.status_code)
+        abort(500)
+
+    metax_modified = datetime.fromisoformat(metax_response.json()['date_modified'])
+
+    if initiated < metax_modified:
+        current_app.logger.error(
+            "Dataset %s has been modified since generation task was initialized"
+            % dataset)
+        abort(409)
 
     # Set download record to database
     db_cursor.execute(
@@ -238,3 +315,15 @@ def resource_not_found(error):
     """Error handler for HTTP 404."""
     return jsonify(
         error="Requested resource was not found in the server"), 404
+
+@download_service.errorhandler(409)
+def conflict(error):
+    """Error handler for HTTP 409."""
+    return jsonify(
+        error="Request conflicts with server data"), 409
+
+@download_service.errorhandler(500)
+def internal_server_error(error):
+    """Error handler for HTTP 500."""
+    return jsonify(
+        error="Internal server error"), 500

@@ -23,3 +23,6 @@ MQ_PASS = 'download'
 JWT_SECRET = 'secret'
 JWT_ALGORITHM = 'HS256'
 JWT_TTL = 60
+
+# Metax API
+METAX_URL = 'http://metax.local/'
