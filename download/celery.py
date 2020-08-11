@@ -51,7 +51,7 @@ def create_celery_app(app=None):
 
 celery_app = create_celery_app()
 
-@celery_app.task(name='generate-task', track_started=True)
-def generate_task(dataset):
+@celery_app.task(name='generate-task', track_started=True, bind=True)
+def generate_task(self, dataset, project_identifier, scope):
     """Celery task for generating download packages in background."""
-    return generate(dataset)
+    return generate(dataset, project_identifier, scope, self.request.id)

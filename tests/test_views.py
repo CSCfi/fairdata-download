@@ -33,7 +33,7 @@ class TestGetRequest:
         response = client.get(self.endpoint, query_string=query_string)
         assert response.status_code == 200
 
-@pytest.mark.usefixtures("mock_celery")
+@pytest.mark.usefixtures("mock_celery", "mock_metax")
 class TestPostRequest:
     endpoint = '/request'
 
@@ -57,7 +57,7 @@ class TestPostRequest:
 
         assert response.status_code == 200
         assert json_response['created'] is False
-        assert recorder.called is False
+        assert recorder.called
 
 @pytest.mark.usefixtures("mock_metax")
 class TestPostAuthorize:

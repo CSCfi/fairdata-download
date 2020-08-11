@@ -1,16 +1,15 @@
 DROP TABLE IF EXISTS generate_task;
+DROP TABLE IF EXISTS generate_scope;
 DROP TABLE IF EXISTS generate_taskgroup;
 DROP TABLE IF EXISTS package;
 DROP TABLE IF EXISTS download;
 
 CREATE TABLE package (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  dataset_id VARCHAR NOT NULL,
-  task_id VARCHAR NOT NULL,
   filename VARCHAR UNIQUE,
   size_bytes INTEGER,
   checksum VARCHAR,
-  initiated DATETIME DEFAULT (datetime('now'))
+  generated_by VARCHAR NOT NULL
 );
 
 CREATE TABLE download (
@@ -23,17 +22,21 @@ CREATE TABLE download (
 CREATE TABLE generate_task (
   id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, 
   task_id VARCHAR(155), 
+  dataset_id VARCHAR(155), 
+  is_partial NUMBER(1) NOT NULL, 
   status VARCHAR(50), 
-  result BLOB, 
+  initiated DATETIME DEFAULT (datetime('now')),
   date_done DATETIME, 
+  result BLOB, 
   traceback TEXT, 
-  name VARCHAR(155), 
-  args BLOB, 
-  kwargs BLOB, 
-  worker VARCHAR(155), 
   retries INTEGER, 
-  queue VARCHAR(155), 
   UNIQUE (task_id)
+);
+
+CREATE TABLE generate_scope (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, 
+  task_id VARCHAR(155) NOT NULL, 
+  filepath VARCHAR(512) NOT NULL
 );
 
 CREATE TABLE generate_taskgroup (

@@ -21,3 +21,18 @@ def format_datetime(utc_timestamp):
                          timezone
     """
     return convert_utc_timestamp(utc_timestamp).isoformat(timespec='seconds')
+
+def startswithpath(prefix, filepath, sep='/'):
+    """Checks whether files in a filepath string match to files in a given path
+    prefix.
+
+    :param prefix: String of a subpath to match
+    :param filepath: String of a filepath to match against given prefix
+    :param sep: Path separator string
+    """
+    prefixpath = prefix.split(sep)
+    path = filepath.split(sep)
+    for i in range(len(prefixpath)):
+        if prefixpath[i] != path[i]:
+            return False
+    return True

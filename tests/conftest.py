@@ -88,6 +88,17 @@ def metax_response():
 
     return MetaxResponse()
 
+@pytest.fixture
+def metax_dataset_files_response():
+    class MetaxDatasetFilesResponse(object):
+        status_code = 200
+        text = '[{ "project_identifier": "test_project", "file_path": "/test/file.txt" }]'
+
+        def json(self):
+            return loads(self.text)
+
+    return MetaxDatasetFilesResponse()
+
 @pytest.fixture(autouse=True)
 def mock_requests_get(monkeypatch):
     def skip_requesting_test(url):
@@ -113,7 +124,7 @@ def mock_init_mq(monkeypatch, recorder):
 
 @pytest.fixture
 def mock_celery(monkeypatch, recorder, celery_task):
-    def mock_generate_task(dataset):
+    def mock_generate_task(dataset, project_identifier, scope):
         recorder.called = True
         return celery_task
 
@@ -121,34 +132,50 @@ def mock_celery(monkeypatch, recorder, celery_task):
         'download.celery.generate_task.delay', mock_generate_task)
 
 @pytest.fixture
-def mock_metax(monkeypatch, recorder, metax_response):
+def mock_metax(monkeypatch, recorder, metax_response, metax_dataset_files_response):
     def mock_get_metax(resource):
         recorder.called = True
-        return metax_response
+        if resource.endswith('files'):
+            return metax_dataset_files_response
+        else:
+            return metax_response
 
+    def mock_get_dataset_filess(resource):
+        recorder.called = True
+        return metax_dataset_files_response
+
+    monkeypatch.setattr('download.metax.get_dataset_files', mock_get_dataset_filess)
     monkeypatch.setattr('download.metax.get_metax', mock_get_metax)
 
 @pytest.fixture
 def not_found_dataset():
     TEST_NOT_FOUND_DATASET = 'test_dataset_01'
 
-    return {'pid': TEST_NOT_FOUND_DATASET}
+    return {'pid': TEST_NOT_FOUND_DATASET, 'project_identifier': 'test_project', 'files': ['/test/file.txt']}
 
 @pytest.fixture
 def pending_dataset(flask_app):
     TEST_PENDING_DATASET = 'test_dataset_02'
+    TEST_PENDING_TASK = 'test_task_02'
+    TEST_PENDING_FILES = ['/test/file.txt']
 
     with flask_app.app_context():
         # Add database record
         db_conn = get_db()
         db_cursor = db_conn.cursor()
 
-        # Packages
         db_cursor.execute(
-            "INSERT INTO package (dataset_id, task_id, initiated) "
-            "VALUES (?, 'task1', '2020-07-20 14:05:21')",
-            (TEST_PENDING_DATASET,)
+            "INSERT INTO generate_task (dataset_id, task_id, initiated, status, is_partial) "
+            "VALUES (?, ?, '2020-07-20 14:05:21', 'PENDING', 0)",
+            (TEST_PENDING_DATASET, TEST_PENDING_TASK)
         )
+        for filepath in TEST_PENDING_FILES:
+            db_cursor.execute(
+                "INSERT INTO generate_scope (task_id, filepath) "
+                "VALUES (?, ?)",
+                (TEST_PENDING_TASK, filepath)
+            )
+
         db_conn.commit()
 
     # Add ida file
@@ -158,13 +185,13 @@ def pending_dataset(flask_app):
     with open(test_file, 'w+') as f:
         f.write('test')
 
-    return {'pid': TEST_PENDING_DATASET}
+    return {'pid': TEST_PENDING_DATASET, 'project_identifier': 'test_project', 'files': TEST_PENDING_FILES}
 
 @pytest.fixture
 def started_dataset(flask_app):
     TEST_STARTED_DATASET = 'test_dataset_03'
-    TEST_STARTED_PACKAGE = TEST_STARTED_DATASET + '.zip'
     TEST_STARTED_TASK = 'test_task_03'
+    TEST_STARTED_FILES = ['/test/file.txt']
 
     with flask_app.app_context():
         # Add database record
@@ -172,15 +199,16 @@ def started_dataset(flask_app):
         db_cursor = db_conn.cursor()
 
         db_cursor.execute(
-            "INSERT INTO package (dataset_id, task_id, filename, initiated) "
-            "VALUES (?, ?, ?, '2020-07-20 14:05:21')",
-            (TEST_STARTED_DATASET, TEST_STARTED_TASK, TEST_STARTED_PACKAGE)
+            "INSERT INTO generate_task (dataset_id, task_id, initiated, status, is_partial) "
+            "VALUES (?, ?, '2020-07-20 14:05:21', 'STARTED', 0)",
+            (TEST_STARTED_DATASET, TEST_STARTED_TASK,)
         )
-        db_cursor.execute(
-            "INSERT INTO generate_task (task_id, status) "
-            "VALUES (?, 'STARTED')",
-            (TEST_STARTED_TASK,)
-        )
+        for filepath in TEST_STARTED_FILES:
+            db_cursor.execute(
+                "INSERT INTO generate_scope (task_id, filepath) "
+                "VALUES (?, ?)",
+                (TEST_STARTED_TASK, filepath)
+            )
 
         db_conn.commit()
 
@@ -198,6 +226,7 @@ def available_dataset(flask_app):
     TEST_AVAILABLE_DATASET = 'test_dataset_04'
     TEST_AVAILABLE_PACKAGE = TEST_AVAILABLE_DATASET + '.zip'
     TEST_AVAILABLE_TASK = 'test_task_04'
+    TEST_AVAILABLE_FILES = ['/test/file.txt']
 
     with flask_app.app_context():
         # Add database record
@@ -205,14 +234,20 @@ def available_dataset(flask_app):
         db_cursor = db_conn.cursor()
 
         db_cursor.execute(
-            "INSERT INTO package (dataset_id, task_id, filename, initiated, size_bytes, checksum) "
-            "VALUES (?, ?, ?, '2020-07-20 14:05:21', '19070072', 'sha256:98fcf5d6c57d0484bcb50f9c99f4870f5a45c70b62ce6e6edbbcabffa479094e')",
-            (TEST_AVAILABLE_DATASET, TEST_AVAILABLE_TASK, TEST_AVAILABLE_PACKAGE)
+            "INSERT INTO generate_task (dataset_id, task_id, status, is_partial, initiated, date_done) "
+            "VALUES (?, ?, 'SUCCESS', 0, '2020-07-20 14:05:21', '2020-08-07 08:44:31.186078')",
+            (TEST_AVAILABLE_DATASET, TEST_AVAILABLE_TASK,)
         )
+        for filepath in TEST_AVAILABLE_FILES:
+            db_cursor.execute(
+                "INSERT INTO generate_scope (task_id, filepath) "
+                "VALUES (?, ?)",
+                (TEST_AVAILABLE_TASK, filepath)
+            )
         db_cursor.execute(
-            "INSERT INTO generate_task (task_id, status, date_done) "
-            "VALUES (?, 'SUCCESS', '2020-08-07 08:44:31.186078')",
-            (TEST_AVAILABLE_TASK,)
+            "INSERT INTO package (filename, size_bytes, checksum, generated_by) "
+            "VALUES (?, '19070072', 'sha256:98fcf5d6c57d0484bcb50f9c99f4870f5a45c70b62ce6e6edbbcabffa479094e', ?)",
+            (TEST_AVAILABLE_PACKAGE, TEST_AVAILABLE_TASK)
         )
         db_conn.commit()
 

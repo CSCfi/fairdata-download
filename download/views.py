@@ -5,15 +5,19 @@
     Module for views used by Fairdata Download Service.
 """
 from datetime import datetime, timedelta
-import os.path
+from os import path
 
 from flask import Blueprint, abort, current_app, jsonify, request, send_file
 from jwt import decode, encode, ExpiredSignatureError
 from jwt.exceptions import DecodeError
 from requests.exceptions import ConnectionError
 
-from .db import get_db
-from .metax import get_dataset
+from .db import get_download_record, get_task_for_package, get_task_rows, \
+                create_download_record, create_task_rows, get_package_row, \
+                get_generate_scope_filepaths
+from .metax import get_dataset_modified_from_metax, \
+                   get_matching_dataset_files_from_metax, \
+                   UnexpectedStatusCode, NoMatchingFilesFound
 from .utils import convert_utc_timestamp, format_datetime
 
 download_service = Blueprint('download', __name__)
@@ -30,52 +34,54 @@ def get_request():
 
     # Check dataset metadata in Metax API
     try:
-        metax_response = get_dataset(dataset)
+        dataset_modified = get_dataset_modified_from_metax(dataset)
     except ConnectionError:
         abort(500)
-
-    if metax_response.status_code != 200:
-        current_app.logger.error(
-            "Received unexpected status code '%s' from Metax API"
-            % metax_response.status_code)
+    except UnexpectedStatusCode:
         abort(500)
 
-    dataset_modified = datetime.fromisoformat(metax_response.json()['date_modified'])
+    # Check task rows from database
+    task_rows = get_task_rows(dataset, dataset_modified)
 
-    db_conn = get_db()
-    db_cursor = db_conn.cursor()
-
-    task_row = db_cursor.execute(
-        'SELECT '
-        '  p.initiated as initiated, '
-        '  p.filename as filename, '
-        '  p.size_bytes as size_bytes, '
-        '  p.checksum as checksum, '
-        '  t.status as status, '
-        '  t.date_done as date_done '
-        'FROM package p '
-        'LEFT JOIN generate_task t '
-        'ON p.task_id = t.task_id '
-        'WHERE p.dataset_id = ? '
-        'AND p.initiated > ?',
-        (dataset, dataset_modified)
-    ).fetchone()
-
-    if task_row is None:
+    if len(task_rows) == 0:
         abort(404)
 
+    # Formulate response
     response = {}
     response['dataset'] = dataset
-    response['status'] = task_row['status'] or 'PENDING'
-    response['initiated'] = format_datetime(task_row['initiated'])
 
-    if response['status'] == 'STARTED':
-        response['package'] = task_row['filename']
-    elif response['status'] == 'SUCCESS':
-        response['package'] = task_row['filename']
-        response['size_bytes'] = task_row['size_bytes']
-        response['checksum'] = task_row['checksum']
-        response['generated'] = format_datetime(task_row['date_done'])
+    for task_row in task_rows:
+        if not task_row['is_partial']:
+            response['status'] = task_row['status']
+            response['initiated'] = format_datetime(task_row['initiated'])
+
+            if task_row['status'] == 'SUCCESS':
+                package_row = get_package_row(task_row['task_id'])
+
+                response['generated'] = format_datetime(task_row['date_done'])
+                response['package'] = package_row['filename']
+                response['size'] = package_row['size_bytes']
+                response['checksum'] = package_row['checksum']
+        else:
+            if 'partial' not in response.keys():
+                response['partial'] = []
+
+            partial_task = {
+                'scope': list(get_generate_scope_filepaths(task_row['task_id'])),
+                'status': task_row['status'],
+                'initiated': format_datetime(task_row['initiated'])
+            }
+
+            if task_row['status'] == 'SUCCESS':
+                package_row = get_package_row(task_row['task_id'])
+
+                partial_task['generated'] = format_datetime(
+                    task_row['date_done'])
+                partial_task['package'] = package_row['filename']
+                partial_task['size'] = package_row['size_bytes']
+                partial_task['checksum'] = package_row['checksum']
+
+            response['partial'].append(partial_task)
 
     return jsonify(response)
 
@@ -87,56 +93,87 @@ def post_request():
     """
     request_data = request.get_json()
     dataset = request_data['dataset']
+    scope = request_data.get('scope', [])
 
-    db_conn = get_db()
-    db_cursor = db_conn.cursor()
+    # Check dataset metadata in Metax API
+    try:
+        dataset_modified = get_dataset_modified_from_metax(dataset)
+    except ConnectionError:
+        abort(500)
+    except UnexpectedStatusCode:
+        abort(500)
 
+    try:
+        generate_scope, project_identifier, is_partial = get_matching_dataset_files_from_metax(dataset, scope)
+    except ConnectionError:
+        abort(500)
+    except UnexpectedStatusCode:
+        abort(500)
+    except NoMatchingFilesFound:
+        abort(409)
+
+    # Check existing tasks in database
     created = False
 
-    task_row = db_cursor.execute(
-        'SELECT p.initiated as initiated, t.status as status '
-        'FROM package p '
-        'LEFT JOIN generate_task t '
-        'ON p.task_id = t.task_id '
-        'WHERE p.dataset_id = ?',
-        (dataset,)
-    ).fetchone()
+    task_rows = get_task_rows(dataset, dataset_modified)
 
-    if task_row is None:
+    task_row = None
+    for row in task_rows:
+        if get_generate_scope_filepaths(row['task_id']) == generate_scope:
+            task_row = row
+            break
+
+    # Create new task if no such already exists
+    if not task_row:
         from .celery import generate_task
-        task = generate_task.delay(dataset)
-        db_cursor.execute(
-            'INSERT INTO package (dataset_id, task_id) VALUES (?, ?)',
-            (dataset, task.id))
-        db_conn.commit()
-        current_app.logger.info(
-            "Created a new file generation task with id '%s' for dataset '%s'"
-            % (task.id, dataset))
+        task = generate_task.delay(
+            dataset,
+            project_identifier,
+            list(generate_scope))
 
-        package_row = db_cursor.execute(
-            'SELECT initiated '
-            'FROM package '
-            'WHERE dataset_id = ?',
-            (dataset,)
-        ).fetchone()
+        task_row = create_task_rows(
+            dataset, task.id, is_partial, generate_scope)
 
         created = True
-        task_status = 'PENDING'
-        initiated = format_datetime(package_row['initiated'])
     else:
-        task_status = task_row['status'] or 'PENDING'
-        initiated = format_datetime(task_row['initiated'])
-
         current_app.logger.info(
             "Found request with status '%s' for dataset '%s'" %
-            (task_status, dataset))
+            (task_row['status'], dataset))
 
-    return jsonify(
-        created=created,
-        dataset=dataset,
-        initiated=initiated,
-        status=task_status
-    )
+    # Formulate response
+    response = {}
+    response['dataset'] = dataset
+    response['created'] = created
+
+    if not is_partial:
+        response['initiated'] = format_datetime(task_row['initiated'])
+        response['status'] = task_row['status']
+
+        if task_row['status'] == 'SUCCESS':
+            package_row = get_package_row(task_row['task_id'])
+
+            response['generated'] = format_datetime(task_row['date_done'])
+            response['package'] = package_row['filename']
+            response['size'] = package_row['size_bytes']
+            response['checksum'] = package_row['checksum']
+    else:
+        partial_task = {
+            'scope': list(generate_scope),
+            'initiated': format_datetime(task_row['initiated']),
+            'status': task_row['status'],
+        }
+
+        if task_row['status'] == 'SUCCESS':
+            package_row = get_package_row(task_row['task_id'])
+
+            partial_task['generated'] = format_datetime(task_row['date_done'])
+            partial_task['package'] = package_row['filename']
+            partial_task['size'] = package_row['size_bytes']
+            partial_task['checksum'] = package_row['checksum']
+
+        response['partial'] = [partial_task]
+
+    return jsonify(response)
 
 @download_service.route('/authorize', methods=['POST'])
 def authorize():
@@ -151,37 +188,22 @@ def authorize():
     package = request_data['package']
 
     # Check package database record
-    db_conn = get_db()
-    db_cursor = db_conn.cursor()
+    task_row = get_task_for_package(dataset, package)
 
-    package_row = db_cursor.execute(
-        'SELECT '
-        '  initiated '
-        'FROM package p '
-        'WHERE p.dataset_id = ?',
-        (dataset,)
-    ).fetchone()
-
-    if package_row is None:
+    if task_row is None:
         abort(404)
 
-    initiated = convert_utc_timestamp(package_row['initiated'])
+    initiated = convert_utc_timestamp(task_row['initiated'])
 
     # Check dataset metadata in Metax API
     try:
-        metax_response = get_dataset(dataset)
+        dataset_modified = get_dataset_modified_from_metax(dataset)
     except ConnectionError:
         abort(500)
-
-    if metax_response.status_code != 200:
-        current_app.logger.error(
-            "Received unexpected status code '%s' from Metax API"
-            % metax_response.status_code)
+    except UnexpectedStatusCode:
         abort(500)
 
-    metax_modified = datetime.fromisoformat(metax_response.json()['date_modified'])
-
-    if initiated < metax_modified:
+    if initiated < dataset_modified:
         current_app.logger.error(
             "Dataset %s has been modified since generation task was initialized"
             % dataset)
@@ -227,14 +249,7 @@ def download():
                 "Received invalid autorization method '%s'" % auth_method)
             abort(401)
 
-    # Check is offered token has been used
-    db_conn = get_db()
-    db_cursor = db_conn.cursor()
-
-    download_row = db_cursor.execute(
-        'SELECT * FROM download WHERE token = ?',
-        (auth_token,)
-    ).fetchone()
+    download_row = get_download_record(auth_token)
 
     if download_row is not None:
         current_app.logger.info('Received download request with used token.')
@@ -257,45 +272,33 @@ def download():
     package = jwt_payload['package']
 
     # Check if package can be found in database
-    package_row = db_cursor.execute(
-        'SELECT initiated FROM package WHERE filename = ?',
-        (package,)
-    ).fetchone()
+    task_row = get_task_for_package(dataset, package)
 
-    if package_row is None:
+    if task_row is None:
         current_app.logger.error("Could not find database record for package "
                                  "'%s' with valid download token" % package)
         abort(404)
 
-    initiated = convert_utc_timestamp(package_row['initiated'])
+    initiated = convert_utc_timestamp(task_row['initiated'])
 
     # Check dataset metadata in Metax API
     try:
-        metax_response = get_dataset(dataset)
+        dataset_modified = get_dataset_modified_from_metax(dataset)
     except ConnectionError:
         abort(500)
-
-    if metax_response.status_code != 200:
-        current_app.logger.error(
-            "Received unexpected status code '%s' from Metax API"
-            % metax_response.status_code)
+    except UnexpectedStatusCode:
         abort(500)
 
-    metax_modified = datetime.fromisoformat(metax_response.json()['date_modified'])
-
-    if initiated < metax_modified:
+    if initiated < dataset_modified:
         current_app.logger.error(
             "Dataset %s has been modified since generation task was initialized"
             % dataset)
         abort(409)
 
-    # Set download record to database
-    db_cursor.execute(
-        'INSERT INTO download (token, filename) VALUES (?, ?)', (auth_token, package)
-    )
-    db_conn.commit()
+    # Check download record in database
+    create_download_record(auth_token, package)
 
-    filename = os.path.join(
+    filename = path.join(
         current_app.config['DOWNLOAD_CACHE_DIR'],
         'datasets',
         package)
