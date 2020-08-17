@@ -69,6 +69,32 @@ def get_download_record(token):
         (token,)
     ).fetchone()
 
+def get_request_scopes(task_id):
+    """Returns a list of sets of scopes that have been requested and are
+    fulfilled by specified partial file generation task.
+
+    :param task_id: ID of the partial file generation task
+    """
+    db_conn = get_db()
+    db_cursor = db_conn.cursor()
+
+    generate_requests = db_cursor.execute(
+        'SELECT id FROM generate_request WHERE task_id = ?',
+        (task_id,)
+    ).fetchall()
+
+    request_scopes = []
+    for generate_request in generate_requests:
+        request_scope = db_cursor.execute(
+            'SELECT prefix FROM generate_request_scope WHERE request_id = ?',
+            (generate_request['id'],)
+        ).fetchall()
+
+        request_scopes.append(
+            set(map(lambda scope_row: scope_row['prefix'], request_scope)))
+
+    return request_scopes
+
 def get_task_rows(dataset_id, initiated_after=''):
     """Returns a rows from file_generate table for a dataset.
 
@@ -109,6 +135,35 @@ def create_download_record(token, filename):
     current_app.logger.info(
         "Created a new download record for package '%s' with token '%s'"
         % (filename, token))
+
+def create_request_scope(task_id, request_scope):
+    """Creates database rows for a file generation request that is fulfilled by
+    given task.
+
+    :param task_id: ID of the partial file generation task fulfilling specified
+                    scope
+    :param request_scope: List of files or directories included in the scope as
+                          requested by client
+    """
+    db_conn = get_db()
+    db_cursor = db_conn.cursor()
+
+    db_cursor.execute(
+        'INSERT INTO generate_request (task_id) VALUES (?)', (task_id,))
+
+    request_id = db_cursor.lastrowid
+
+    for prefix in request_scope:
+        db_cursor.execute(
+            'INSERT INTO generate_request_scope (request_id, prefix) VALUES (?, ?)',
+            (request_id, prefix))
+
+    db_conn.commit()
+
+    current_app.logger.info(
+        "Created a new file generation request with task_id '%s' and scope "
+        "'%s'"
+        % (task_id, request_scope))
 
 def create_task_rows(dataset_id, task_id, is_partial, generate_scope):
     """Creates all the appropriate rows to generate_task and generate_scope

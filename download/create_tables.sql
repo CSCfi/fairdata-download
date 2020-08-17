@@ -2,6 +2,8 @@ DROP TABLE IF EXISTS generate_task;
 DROP TABLE IF EXISTS generate_scope;
 DROP TABLE IF EXISTS generate_taskgroup;
 DROP TABLE IF EXISTS package;
+DROP TABLE IF EXISTS generate_request;
+DROP TABLE IF EXISTS generate_request_scope;
 DROP TABLE IF EXISTS download;
 
 CREATE TABLE package (
@@ -45,4 +47,15 @@ CREATE TABLE generate_taskgroup (
   result BLOB, 
   date_done DATETIME, 
   UNIQUE (taskset_id)
+);
+
+CREATE TABLE generate_request (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, 
+  task_id VARCHAR(155) NOT NULL
+);
+
+CREATE TABLE generate_request_scope (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, 
+  request_id INTEGER NOT NULL, 
+  prefix VARCHAR(512) NOT NULL
 );

@@ -12,8 +12,9 @@ from jwt import decode, encode, ExpiredSignatureError
 from jwt.exceptions import DecodeError
 from requests.exceptions import ConnectionError
 
-from .db import get_download_record, get_task_for_package, get_task_rows, \
-                create_download_record, create_task_rows, get_package_row, \
+from .db import get_download_record, get_request_scopes, \
+                get_task_for_package, get_task_rows, create_download_record, \
+                create_request_scope, create_task_rows, get_package_row, \
                 get_generate_scope_filepaths
 from .metax import get_dataset_modified_from_metax, \
                    get_matching_dataset_files_from_metax, \
@@ -66,22 +67,24 @@ def get_request():
             if 'partial' not in response.keys():
                 response['partial'] = []
 
-            partial_task = {
-                'scope': list(get_generate_scope_filepaths(task_row['task_id'])),
-                'status': task_row['status'],
-                'initiated': format_datetime(task_row['initiated'])
-            }
-
             if task_row['status'] == 'SUCCESS':
                 package_row = get_package_row(task_row['task_id'])
 
-                partial_task['generated'] = format_datetime(
-                    task_row['date_done'])
-                partial_task['package'] = package_row['filename']
-                partial_task['size'] = package_row['size_bytes']
-                partial_task['checksum'] = package_row['checksum']
+            for request_scope in get_request_scopes(task_row['task_id']):
+                partial_task = {
+                    'scope': list(request_scope),
+                    'status': task_row['status'],
+                    'initiated': format_datetime(task_row['initiated'])
+                }
 
-            response['partial'].append(partial_task)
+                if task_row['status'] == 'SUCCESS':
+                    partial_task['generated'] = format_datetime(
+                        task_row['date_done'])
+                    partial_task['package'] = package_row['filename']
+                    partial_task['size'] = package_row['size_bytes']
+                    partial_task['checksum'] = package_row['checksum']
+
+                response['partial'].append(partial_task)
 
     return jsonify(response)
 
@@ -93,7 +96,7 @@ def post_request():
     """
     request_data = request.get_json()
     dataset = request_data['dataset']
-    scope = request_data.get('scope', [])
+    request_scope = request_data.get('scope', [])
 
     # Check dataset metadata in Metax API
     try:
@@ -104,7 +107,7 @@ def post_request():
         abort(500)
 
     try:
-        generate_scope, project_identifier, is_partial = get_matching_dataset_files_from_metax(dataset, scope)
+        generate_scope, project_identifier, is_partial = get_matching_dataset_files_from_metax(dataset, request_scope)
     except ConnectionError:
         abort(500)
     except UnexpectedStatusCode:
@@ -134,11 +137,17 @@ def post_request():
         task_row = create_task_rows(
             dataset, task.id, is_partial, generate_scope)
 
+        if is_partial:
+            create_request_scope(task.id, request_scope)
+
         created = True
     else:
         current_app.logger.info(
             "Found request with status '%s' for dataset '%s'" %
             (task_row['status'], dataset))
+
+        if set(request_scope) not in get_request_scopes(task_row['task_id']):
+            create_request_scope(task_row['task_id'], request_scope)
 
     # Formulate response
     response = {}
@@ -158,7 +167,7 @@ def post_request():
             response['checksum'] = package_row['checksum']
     else:
         partial_task = {
-            'scope': list(generate_scope),
+            'scope': request_scope,
             'initiated': format_datetime(task_row['initiated']),
             'status': task_row['status'],
         }
