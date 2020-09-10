@@ -17,6 +17,7 @@ from .db import get_download_record, get_request_scopes, \
                 create_request_scope, create_task_rows, get_package_row, \
                 get_generate_scope_filepaths
 from .metax import get_dataset_modified_from_metax, \
+                   get_matching_project_identifier_from_metax, \
                    get_matching_dataset_files_from_metax, \
                    UnexpectedStatusCode, NoMatchingFilesFound
 from .utils import convert_utc_timestamp, format_datetime
@@ -194,37 +195,47 @@ def authorize():
     request_data = request.get_json()
 
     dataset = request_data['dataset']
-    package = request_data['package']
+    package = request_data.get('package')
+    if package is None:
+        filename = request_data.get('file') or abort(400)
+        project_identifier = get_matching_project_identifier_from_metax(dataset, filename) or abort(500)
 
-    # Check package database record
-    task_row = get_task_for_package(dataset, package)
+        # Create JWT
+        jwt_payload = {
+            'exp': datetime.utcnow()
+                   + timedelta(minutes=current_app.config['JWT_TTL']),
+            'dataset': dataset,
+            'file': filename,
+            'project': project_identifier
+        }
+    else:
+        # Check package database record
+        task_row = get_task_for_package(dataset, package) or abort(404)
 
-    if task_row is None:
-        abort(404)
+        initiated = convert_utc_timestamp(task_row['initiated'])
 
-    initiated = convert_utc_timestamp(task_row['initiated'])
+        # Check dataset metadata in Metax API
+        try:
+            dataset_modified = get_dataset_modified_from_metax(dataset)
+        except ConnectionError:
+            abort(500)
+        except UnexpectedStatusCode:
+            abort(500)
 
-    # Check dataset metadata in Metax API
-    try:
-        dataset_modified = get_dataset_modified_from_metax(dataset)
-    except ConnectionError:
-        abort(500)
-    except UnexpectedStatusCode:
-        abort(500)
+        if initiated < dataset_modified:
+            current_app.logger.error(
+                "Dataset %s has been modified since generation task was "
+                "initialized"
+                % dataset)
+            abort(409)
 
-    if initiated < dataset_modified:
-        current_app.logger.error(
-            "Dataset %s has been modified since generation task was initialized"
-            % dataset)
-        abort(409)
-
-    # Create JWT
-    jwt_payload = {
-        'exp': datetime.utcnow()
-               + timedelta(minutes=current_app.config['JWT_TTL']),
-        'dataset': dataset,
-        'package': package
-    }
+        # Create JWT
+        jwt_payload = {
+            'exp': datetime.utcnow()
+                   + timedelta(minutes=current_app.config['JWT_TTL']),
+            'dataset': dataset,
+            'package': package
+        }
 
     jwt_token = encode(
         jwt_payload,
@@ -271,50 +282,65 @@ def download():
             current_app.config['JWT_SECRET'],
             algorithms=[current_app.config['JWT_ALGORITHM']])
     except ExpiredSignatureError:
-        current_app.logger.info('Received download request with expired token.')
+        current_app.logger.info("Received download request with expired "
+                                "token.")
         abort(401)
     except DecodeError:
         current_app.logger.info('Unable to decode offered token.')
         abort(401)
 
     dataset = jwt_payload['dataset']
-    package = jwt_payload['package']
+    package = jwt_payload.get('package')
 
-    # Check if package can be found in database
-    task_row = get_task_for_package(dataset, package)
+    if package is None:
+        filepath = jwt_payload.get('file')
+        project_identifier = jwt_payload.get('project')
 
-    if task_row is None:
-        current_app.logger.error("Could not find database record for package "
-                                 "'%s' with valid download token" % package)
-        abort(404)
+        filename = path.join(
+            current_app.config['IDA_DATA_ROOT'],
+            'PDO_%s' % project_identifier,
+            'files',
+            project_identifier,
+            ) + filepath
+    else:
+        # Check if package can be found in database
+        task_row = get_task_for_package(dataset, package)
 
-    initiated = convert_utc_timestamp(task_row['initiated'])
+        if task_row is None:
+            current_app.logger.error("Could not find database record for "
+                                     "package '%s' with valid download token"
+                                     % package)
+            abort(404)
 
-    # Check dataset metadata in Metax API
-    try:
-        dataset_modified = get_dataset_modified_from_metax(dataset)
-    except ConnectionError:
-        abort(500)
-    except UnexpectedStatusCode:
-        abort(500)
+        initiated = convert_utc_timestamp(task_row['initiated'])
 
-    if initiated < dataset_modified:
-        current_app.logger.error(
-            "Dataset %s has been modified since generation task was initialized"
-            % dataset)
-        abort(409)
+        # Check dataset metadata in Metax API
+        try:
+            dataset_modified = get_dataset_modified_from_metax(dataset)
+        except ConnectionError:
+            abort(500)
+        except UnexpectedStatusCode:
+            abort(500)
 
-    # Check download record in database
-    create_download_record(auth_token, package)
+        if initiated < dataset_modified:
+            current_app.logger.error("Dataset %s has been modified since "
+                                     "generation task was initialized"
+                                     % dataset)
+            abort(409)
 
-    filename = path.join(
-        current_app.config['DOWNLOAD_CACHE_DIR'],
-        'datasets',
-        package)
+        filename = path.join(current_app.config['DOWNLOAD_CACHE_DIR'],
+                             'datasets',
+                             package)
 
+    create_download_record(auth_token, package or filepath)
     # TODO: replace send_file with streamed content:
     # https://flask.palletsprojects.com/en/1.1.x/patterns/streaming/
     return send_file(filename, as_attachment=True)
+
+@download_service.errorhandler(400)
+def bad_request(error):
+    """Error handler for HTTP 400."""
+    return jsonify(error="Bad request"), 400
 
 @download_service.errorhandler(401)
 def unauthorized(error):

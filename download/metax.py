@@ -66,6 +66,25 @@ def get_dataset_modified_from_metax(dataset_id):
 
     return datetime.fromisoformat(metax_response.json()['date_modified'])
 
+def get_matching_project_identifier_from_metax(dataset_id, filepath):
+    try:
+        metax_files_response = get_dataset_files(dataset_id)
+    except ConnectionError:
+        abort(500)
+
+    if metax_files_response.status_code != 200:
+        current_app.logger.error(
+            "Received unexpected status code '%s' from Metax API"
+            % metax_response.status_code)
+        raise UnexpectedStatusCode
+
+    metax_json = metax_files_response.json()
+    matching_file = list(filter(lambda metax_file: metax_file['file_path'] == filepath,
+                               metax_json))
+    current_app.logger.info(matching_file)
+
+    return matching_file[-1].get('project_identifier') if len(matching_file) > 0 else None
+
 def get_matching_dataset_files_from_metax(dataset_id, scope):
     try:
         metax_files_response = get_dataset_files(dataset_id)
