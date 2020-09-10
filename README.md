@@ -3,7 +3,7 @@
 The Fairdata download server (v2) which provides for packaging and download of
 published datasets, or subsets of datasets, available via Etsin.
 
-## Development
+## Local Development
 
 ### Install
 
@@ -50,4 +50,25 @@ After running tests, coverage report can be displayed with:
 
 ```
 coverage report -m
+```
+
+## Development with Docker
+
+Repository includes Dockerfile and docker-compose files for development
+environment setups.
+
+First build local development docker image by running command below:
+```
+docker build . --no-cache -t fairdata-download-server:dev \
+    --build-arg DEVELOPER_UID=$(id -u) --build-arg DEVELOPER_GID=$(id -g)
+```
+
+In order to set development environment up, create `settings.cfg.dev` file and
+include development environment settings for the download service (see
+`download/config.py` for a list of configuration parameters).
+
+Next ensure that Docker Swarm is initialized, and finally deploy the stack
+```
+docker swarm init
+docker stack deploy -c docker-compose.yml download-dev
 ```

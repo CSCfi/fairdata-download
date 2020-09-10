@@ -1,8 +1,9 @@
 venv/
 .env
+*.db
 
-data
-*.dev
+*/download-cache
+*/ida-data
 
 *.pyc
 __pycache__/

@@ -1,0 +1,27 @@
+version: '3.3'
+
+services:
+  download-server:
+    image: fairdata-download-server
+    environment:
+      DOWNLOAD_SERVICE_SETTINGS: '/etc/fairdata-download-service/settings.cfg'
+    ports:
+      - 5000:5000
+    volumes:
+      - .:/app
+    configs:
+      - source: dev-config
+        target: /etc/fairdata-download-service/settings.cfg
+
+  rabbitmq:
+    image: rabbitmq:management
+    environment:
+      RABBITMQ_DEFAULT_USER: download
+      RABBITMQ_DEFAULT_PASS: download
+      RABBITMQ_DEFAULT_VHOST: download
+    ports:
+      - 15672:15672
+
+configs:
+  dev-config:
+    file: ./settings.cfg.dev
