@@ -204,6 +204,20 @@ def create_task_rows(dataset_id, task_id, is_partial, generate_scope):
         (task_id,)
     ).fetchone()
 
+def exists_in_database(filename):
+    """Returns true if a package with a given filename can be found in the
+       database.
+
+    :param filename: Name of the package file
+    """
+    db_conn = get_db()
+    db_cursor = db_conn.cursor()
+
+    return db_cursor.execute(
+        'SELECT * FROM package WHERE filename = ?',
+        (filename,)
+    ).fetchone() is not None
+
 def get_package_row(generated_by):
     """Returns row from package table for a given task.
 

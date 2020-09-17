@@ -8,7 +8,7 @@ import os
 
 from flask import Flask
 
-from . import db, generator, mq
+from . import cache, db, generator, mq
 from .views import download_service
 
 def create_flask_app():
@@ -19,6 +19,7 @@ def create_flask_app():
     if 'DOWNLOAD_SERVICE_SETTINGS' in os.environ:
         app.config.from_envvar('DOWNLOAD_SERVICE_SETTINGS')
 
+    cache.init_app(app)
     db.init_app(app)
     mq.init_app(app)
     generator.init_app(app)
