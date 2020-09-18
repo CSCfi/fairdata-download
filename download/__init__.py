@@ -26,6 +26,13 @@ def create_flask_app():
 
     app.register_blueprint(download_service)
 
+    if os.environ.get('DOWNLOAD_SERVICE_SETTINGS') != 'production':
+        from .swagger import download_service_swagger, \
+                             download_service_swagger_ui
+        app.register_blueprint(download_service_swagger)
+        app.register_blueprint(download_service_swagger_ui,
+                               url_prefix='/api/docs')
+
     return app
 
 flask_app = create_flask_app()

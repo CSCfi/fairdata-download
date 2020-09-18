@@ -27,11 +27,34 @@ download_service = Blueprint('download', __name__)
 
 @download_service.route('/request', methods=['GET'])
 def get_request():
-    """Internally available end point for file generation request data.
+    """
+    Internally available end point for file generation request data.
 
     Returns JSON encoded details regarding zero or more downloadable
     dataset package files, and/or partial subset package files, which exist
     in the cache or are in the process of being generated.
+    ---
+    tags:
+      - generate tasks
+    produces:
+      - application/json
+    parameters:
+      - name: dataset
+        in: query
+        description: ID of the dataset whose package generation requests are
+                     returned
+        schema:
+          type: string
+          example: "1"
+        required: true
+    responses:
+      200:
+        description: Information about the active package generation requests
+      404:
+        description: No active requests for given dataset were found
+      500:
+        description: Unable to connect to Metax API or an unexpected status
+                     code received
     """
     dataset = request.args.get('dataset', '')
 
@@ -95,6 +118,36 @@ def post_request():
     """Internally available end point for initiating file generation.
 
     Creates a new file generation request if no such already exists.
+    ---
+    tags:
+      - generate tasks
+    consumes:
+      - application/json
+    produces:
+      - application/json
+    parameters:
+      - name: body
+        in: body
+        description: ID of the dataset whose files are included in generated
+                     package
+        schema:
+          type: object
+          properties:
+            dataset:
+              type: string
+              example: "1"
+            scope:
+              type: array
+              example: ["/project_x_FROZEN/Experiment_X/file_name_1"]
+        required: true
+    responses:
+      200:
+        description: Information about the matching package generation request
+      409:
+        description: No files matching specified scope was found
+      500:
+        description: Unable to connect to Metax API or an unexpected status
+                     code received
     """
     request_data = request.get_json()
     dataset = request_data['dataset']
@@ -192,6 +245,45 @@ def authorize():
 
     Requests a time-limited single-use token for download of a specific
     dataset package or file.
+    ---
+    tags:
+      - downloads
+    consumes:
+      - application/json
+    produces:
+      - application/json
+    parameters:
+      - name: body
+        in: body
+        description: ID of the dataset whose package generation requests are
+                     returned
+        schema:
+          type: object
+          properties:
+            dataset:
+              type: string
+              example: "1"
+              required: true
+            package:
+              type: string
+              required: false
+            file:
+              type: string
+              example: "/project_x_FROZEN/Experiment_X/file_name_1"
+              required: false
+        required: true
+    responses:
+      200:
+        description: Token for downloading the requested file or package
+      400:
+        description: No dataset file or active generated package matching
+                     request was found
+      409:
+        description: Dataset was modified since the requested package was
+                     generated
+      500:
+        description: Unable to connect to Metax API or an unexpected status
+                     code received
     """
     request_data = request.get_json()
 
@@ -254,6 +346,33 @@ def download():
     Allows downloading files with valid tokens, generated with authorize
     requests. Trusted access without token to certain internal services (e.g.
     PAS).
+    ---
+    tags:
+      - downloads
+    consumes:
+      - application/json
+    produces:
+      - application/octet-stream
+    parameters:
+      - name: token
+        in: query
+        description: Token used to authorize the download
+        schema:
+          type: string
+        required: true
+    responses:
+      200:
+        description: File or package to be downloaded with the provided token
+      401:
+        description: Unauthorized to download file due to unacceptable token
+      404:
+        description: Could not find requested package from database
+      409:
+        description: Dataset was modified since the requested package was
+                     generated
+      500:
+        description: Unable to connect to Metax API or an unexpected status
+                     code received
     """
     # Read auth token from request parameters
     auth_token = request.args.get('token', None)
