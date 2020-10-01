@@ -7,7 +7,8 @@
 from datetime import datetime, timedelta
 from os import path
 
-from flask import Blueprint, abort, current_app, jsonify, request, send_file
+from flask import Blueprint, Response, abort, current_app, jsonify, request, \
+                  stream_with_context
 from jwt import decode, encode, ExpiredSignatureError
 from jwt.exceptions import DecodeError
 from requests.exceptions import ConnectionError
@@ -16,7 +17,7 @@ from .cache import get_datasets_dir
 from .db import get_download_record, get_request_scopes, \
                 get_task_for_package, get_task_rows, create_download_record, \
                 create_request_scope, create_task_rows, get_package_row, \
-                get_generate_scope_filepaths
+                get_generate_scope_filepaths, update_download_record
 from .metax import get_dataset_modified_from_metax, \
                    get_matching_project_identifier_from_metax, \
                    get_matching_dataset_files_from_metax, \
@@ -450,10 +451,26 @@ def download():
 
         filename = path.join(get_datasets_dir(), package)
 
-    create_download_record(auth_token, package or filepath)
-    # TODO: replace send_file with streamed content:
-    # https://flask.palletsprojects.com/en/1.1.x/patterns/streaming/
-    return send_file(filename, as_attachment=True)
+    def stream_response():
+      download_id = create_download_record(auth_token, package or filepath)
+      try:
+        with open(filename, "rb") as f:
+          chunk = f.read(128)
+          while chunk != b"":
+            yield chunk
+            chunk = f.read(128)
+        update_download_record(download_id)
+      except:
+        update_download_record(download_id, False)
+        current_app.logger.error("Failed to stream file '%s'" % filename)
+
+    response_headers= {
+        'Content-Type': 'application/octet-stream',
+        'Content-Disposition': 'attachment; filename="%s"'
+        % (package or filepath.split('/')[-1])
+    }
+    return Response(stream_with_context(stream_response()),
+                    headers=response_headers)
 
 @download_service.errorhandler(400)
 def bad_request(error):

@@ -18,7 +18,9 @@ CREATE TABLE download (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   token VARCHAR UNIQUE NOT NULL,
   filename VARCHAR NOT NULL,
-  download_started DATETIME DEFAULT (datetime('now'))
+  status VARCHAR DEFAULT ('ACTIVE'),
+  started DATETIME DEFAULT (datetime('now')),
+  finished DATETIME
 );
 
 CREATE TABLE generate_task (

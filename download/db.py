@@ -136,6 +136,30 @@ def create_download_record(token, filename):
         "Created a new download record for package '%s' with token '%s'"
         % (filename, token))
 
+    return db_cursor.lastrowid
+
+def update_download_record(download_id, successful=True):
+    """Update download record after the stream has ended.
+
+    :param download_id: ID of the download record in the database
+    :param successful: Whether or not the download ended succesfully
+    """
+    db_conn = get_db()
+    db_cursor = db_conn.cursor()
+
+    status = 'SUCCESSFUL' if successful else 'FAILED'
+
+    db_cursor.execute(
+        'UPDATE download SET status = ?, finished = DATETIME() WHERE id = ?',
+        (status, download_id)
+    )
+
+    db_conn.commit()
+
+    current_app.logger.debug(
+        "Set status of download '%s' to '%s'"
+        % (download_id, status))
+
 def create_request_scope(task_id, request_scope):
     """Creates database rows for a file generation request that is fulfilled by
     given task.
