@@ -5,6 +5,7 @@ services:
     image: fairdata-download-server
     environment:
       DOWNLOAD_SERVICE_SETTINGS: '/etc/fairdata-download-service/settings.cfg'
+      DOWNLOAD_SERVICE_TEST_DATA: '/etc/fairdata-download-service/test-data.cfg'
     ports:
       - 5000:5000
     volumes:
@@ -12,6 +13,8 @@ services:
     configs:
       - source: dev-config
         target: /etc/fairdata-download-service/settings.cfg
+      - source: dev-test-data
+        target: /etc/fairdata-download-service/test-data.cfg
 
   rabbitmq:
     image: rabbitmq:management
@@ -25,3 +28,5 @@ services:
 configs:
   dev-config:
     file: ./settings.cfg.dev
+  dev-test-data:
+    file: ./test-data.cfg.dev
