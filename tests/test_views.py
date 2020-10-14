@@ -3,7 +3,7 @@ import requests
 
 @pytest.mark.usefixtures("mock_metax")
 class TestGetRequest:
-    endpoint = '/request'
+    endpoint = '/requests'
 
     def test_not_found(self, client, not_found_dataset):
         query_string = {
@@ -35,7 +35,7 @@ class TestGetRequest:
 
 @pytest.mark.usefixtures("mock_celery", "mock_metax")
 class TestPostRequest:
-    endpoint = '/request'
+    endpoint = '/requests'
 
     def test_not_found(self, client, recorder, not_found_dataset):
         json = {

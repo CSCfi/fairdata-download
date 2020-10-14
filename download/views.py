@@ -26,7 +26,7 @@ from .utils import convert_utc_timestamp, format_datetime
 
 download_service = Blueprint('download', __name__)
 
-@download_service.route('/request', methods=['GET'])
+@download_service.route('/requests', methods=['GET'])
 def get_request():
     """
     Internally available end point for file generation request data.
@@ -114,7 +114,7 @@ def get_request():
 
     return jsonify(response)
 
-@download_service.route('/request', methods=['POST'])
+@download_service.route('/requests', methods=['POST'])
 def post_request():
     """Internally available end point for initiating file generation.
 
