@@ -25,9 +25,17 @@ def purge():
 
     current_app.logger.debug('Removed %s files' % removed)
 
+def get_datasets_dir():
+    cache_dir = os.path.join(current_app.config['DOWNLOAD_CACHE_DIR'],
+                           'datasets')
+
+    if not os.path.exists(cache_dir):
+        os.makedirs(cache_dir)
+
+    return cache_dir
+
 cache_cli = AppGroup('cache', help='Run maintentance operations against '
                                    'download cache.')
-
 @cache_cli.command('purge')
 def purge_command():
     """Execute cache purge operation."""

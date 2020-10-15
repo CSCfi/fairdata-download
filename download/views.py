@@ -12,6 +12,7 @@ from jwt import decode, encode, ExpiredSignatureError
 from jwt.exceptions import DecodeError
 from requests.exceptions import ConnectionError
 
+from .cache import get_datasets_dir
 from .db import get_download_record, get_request_scopes, \
                 get_task_for_package, get_task_rows, create_download_record, \
                 create_request_scope, create_task_rows, get_package_row, \
@@ -328,9 +329,7 @@ def download():
                                      % dataset)
             abort(409)
 
-        filename = path.join(current_app.config['DOWNLOAD_CACHE_DIR'],
-                             'datasets',
-                             package)
+        filename = path.join(get_datasets_dir(), package)
 
     create_download_record(auth_token, package or filepath)
     # TODO: replace send_file with streamed content:

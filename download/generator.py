@@ -13,6 +13,7 @@ from click import option
 from flask import current_app
 from flask.cli import AppGroup
 
+from .cache import get_datasets_dir
 from .db import get_db
 
 def generate(dataset, project_identifier, scope, requestor_id):
@@ -27,7 +28,7 @@ def generate(dataset, project_identifier, scope, requestor_id):
     output_filehandle, output_filename = tempfile.mkstemp(
         suffix='.zip',
         prefix=dataset + '_',
-        dir=os.path.join(current_app.config['DOWNLOAD_CACHE_DIR'], 'datasets'))
+        dir=get_datasets_dir())
 
     # Generate file
     current_app.logger.info(
