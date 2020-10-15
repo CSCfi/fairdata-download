@@ -4,6 +4,7 @@
 
     Database module for Fairdata Download Service.
 """
+from os import path
 import sqlite3
 
 import click
@@ -15,7 +16,12 @@ def get_db():
     if no conection is already established.
 
     """
+    init_schema = False
+
     if 'db' not in g:
+        if not path.isfile(current_app.config['DATABASE_FILE']):
+            init_schema = True
+
         g.db = sqlite3.connect(
             current_app.config['DATABASE_FILE'],
             detect_types=sqlite3.PARSE_DECLTYPES
@@ -25,6 +31,9 @@ def get_db():
         current_app.logger.debug(
             'Connected to database on %s' %
             (current_app.config['DATABASE_FILE'], ))
+
+    if init_schema:
+        init_db()
 
     return g.db
 
