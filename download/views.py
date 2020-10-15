@@ -5,6 +5,7 @@
     Module for views used by Fairdata Download Service.
 """
 from datetime import datetime, timedelta
+from marshmallow import ValidationError
 from os import path
 
 from flask import Blueprint, Response, abort, current_app, jsonify, request, \
@@ -23,6 +24,8 @@ from .metax import get_dataset_modified_from_metax, \
                    get_matching_dataset_files_from_metax, \
                    UnexpectedStatusCode, NoMatchingFilesFound
 from .utils import convert_utc_timestamp, format_datetime
+from .model.requests import AuthorizePostData, DownloadQuerySchema, \
+                            RequestsPostData, RequestsQuerySchema
 
 download_service = Blueprint('download', __name__)
 
@@ -57,8 +60,12 @@ def get_request():
         description: Unable to connect to Metax API or an unexpected status
                      code received
     """
-    dataset = request.args.get('dataset', '')
+    try:
+        query = RequestsQuerySchema().load(request.args)
+    except ValidationError as err:
+        abort(400, str(err.messages))
 
+    dataset = query.get('dataset')
     # Check dataset metadata in Metax API
     try:
         dataset_modified = get_dataset_modified_from_metax(dataset)
@@ -150,8 +157,12 @@ def post_request():
         description: Unable to connect to Metax API or an unexpected status
                      code received
     """
-    request_data = request.get_json()
-    dataset = request_data['dataset']
+    try:
+        request_data = RequestsPostData().load(request.get_json())
+    except ValidationError as err:
+        abort(400, str(err.messages))
+
+    dataset = request_data.get('dataset')
     request_scope = request_data.get('scope', [])
 
     # Check dataset metadata in Metax API
@@ -286,13 +297,21 @@ def authorize():
         description: Unable to connect to Metax API or an unexpected status
                      code received
     """
-    request_data = request.get_json()
+    try:
+        request_data = AuthorizePostData().load(request.get_json())
+    except ValidationError as err:
+        abort(400, str(err.messages))
 
-    dataset = request_data['dataset']
+    dataset = request_data.get('dataset')
     package = request_data.get('package')
+
     if package is None:
-        filename = request_data.get('file') or abort(400)
-        project_identifier = get_matching_project_identifier_from_metax(dataset, filename) or abort(500)
+        filename = request_data.get('filename') or abort(400)
+        project_identifier = get_matching_project_identifier_from_metax(
+            dataset,
+            filename)
+        if project_identifier is None:
+            abort(500, "No matching project was found for dataset '%s' and filename '%s'" % (dataset, filename))
 
         # Create JWT
         jwt_payload = {
@@ -355,12 +374,29 @@ def download():
     produces:
       - application/octet-stream
     parameters:
+      - name: dataset
+        in: query
+        description: Dataset whose file or package is to be downloaded
+        schema:
+          type: string
+          example: "1"
+        required: true
+      - name: package
+        in: query
+        description: Package to be downloaded
+        schema:
+          type: string
+      - name: file
+        in: query
+        description: File to be downloaded
+        schema:
+          type: string
+          example: "/project_x_FROZEN/Experiment_X/file_name_1"
       - name: token
         in: query
         description: Token used to authorize the download
         schema:
           type: string
-        required: true
     responses:
       200:
         description: File or package to be downloaded with the provided token
@@ -375,8 +411,13 @@ def download():
         description: Unable to connect to Metax API or an unexpected status
                      code received
     """
+    try:
+        request_data = DownloadQuerySchema().load(request.args)
+    except ValidationError as err:
+        abort(400, str(err.messages))
+
     # Read auth token from request parameters
-    auth_token = request.args.get('token', None)
+    auth_token = request_data.get('token')
 
     if auth_token is None:
         # Parse authorization header
@@ -475,28 +516,29 @@ def download():
 @download_service.errorhandler(400)
 def bad_request(error):
     """Error handler for HTTP 400."""
-    return jsonify(error="Bad request"), 400
+    current_app.logger.error(error)
+    return jsonify(name=error.name, error=str(error.description)), 400
 
 @download_service.errorhandler(401)
 def unauthorized(error):
     """Error handler for HTTP 401."""
-    return jsonify(
-        error="Unauthorized to access the resource on the server"), 401
+    current_app.logger.error(error)
+    return jsonify(name=error.name, error=str(error.description)), 401
 
 @download_service.errorhandler(404)
 def resource_not_found(error):
     """Error handler for HTTP 404."""
-    return jsonify(
-        error="Requested resource was not found in the server"), 404
+    current_app.logger.error(error)
+    return jsonify(name=error.name, error=str(error.description)), 404
 
 @download_service.errorhandler(409)
 def conflict(error):
     """Error handler for HTTP 409."""
-    return jsonify(
-        error="Request conflicts with server data"), 409
+    current_app.logger.error(error)
+    return jsonify(name=error.name, error=str(error.description)), 409
 
 @download_service.errorhandler(500)
 def internal_server_error(error):
     """Error handler for HTTP 500."""
-    return jsonify(
-        error="Internal server error"), 500
+    current_app.logger.error(error)
+    return jsonify(name=error.name, error=str(error.description)), 500

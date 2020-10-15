@@ -304,7 +304,7 @@ def not_found_dataset_auth_token(flask_app, not_found_dataset):
     jwt_payload = {
         'exp': expired,
         'dataset': not_found_dataset['pid'],
-        'package': not_found_dataset['pid']
+        'package': 'test.zip'
     }
 
     jwt_token = encode(
