@@ -83,7 +83,8 @@ def get_request():
     task_rows = get_task_rows(dataset, dataset_modified)
 
     if len(task_rows) == 0:
-        abort(404)
+        abort(404, ("No active file generation tasks was found for dataset "
+                    "'%s'" % dataset))
 
     # Formulate response
     response = {}

@@ -90,14 +90,12 @@ def metax_response():
 
 @pytest.fixture
 def metax_dataset_files_response():
-    class MetaxDatasetFilesResponse(object):
-        status_code = 200
-        text = '[{ "project_identifier": "test_project", "file_path": "/test/file.txt" }]'
-
-        def json(self):
-            return loads(self.text)
-
-    return MetaxDatasetFilesResponse()
+    return [
+        {
+          "project_identifier": "test_project",
+          "file_path": "/test/file.txt"
+          }
+        ]
 
 @pytest.fixture(autouse=True)
 def mock_requests_get(monkeypatch):
