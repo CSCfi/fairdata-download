@@ -22,7 +22,8 @@ from .db import get_download_record, get_request_scopes, \
 from .metax import get_dataset_modified_from_metax, \
                    get_matching_project_identifier_from_metax, \
                    get_matching_dataset_files_from_metax, \
-                   UnexpectedStatusCode, NoMatchingFilesFound
+                   DatasetNotFound, UnexpectedStatusCode, \
+                   MissingFieldsInResponse, NoMatchingFilesFound
 from .utils import convert_utc_timestamp, format_datetime
 from .model.requests import AuthorizePostData, DownloadQuerySchema, \
                             RequestsPostData, RequestsQuerySchema
@@ -69,7 +70,11 @@ def get_request():
     # Check dataset metadata in Metax API
     try:
         dataset_modified = get_dataset_modified_from_metax(dataset)
+    except DatasetNotFound as err:
+        abort(404, err)
     except ConnectionError:
+        abort(500)
+    except MissingFieldsInResponse:
         abort(500)
     except UnexpectedStatusCode:
         abort(500)
@@ -168,7 +173,11 @@ def post_request():
     # Check dataset metadata in Metax API
     try:
         dataset_modified = get_dataset_modified_from_metax(dataset)
+    except DatasetNotFound as err:
+        abort(404, err)
     except ConnectionError:
+        abort(500)
+    except MissingFieldsInResponse:
         abort(500)
     except UnexpectedStatusCode:
         abort(500)
@@ -179,8 +188,8 @@ def post_request():
         abort(500)
     except UnexpectedStatusCode:
         abort(500)
-    except NoMatchingFilesFound:
-        abort(409)
+    except NoMatchingFilesFound as err:
+        abort(409, err)
 
     # Check existing tasks in database
     created = False
@@ -330,7 +339,11 @@ def authorize():
         # Check dataset metadata in Metax API
         try:
             dataset_modified = get_dataset_modified_from_metax(dataset)
+        except DatasetNotFound as err:
+            abort(404, err)
         except ConnectionError:
+            abort(500)
+        except MissingFieldsInResponse:
             abort(500)
         except UnexpectedStatusCode:
             abort(500)
@@ -479,7 +492,11 @@ def download():
         # Check dataset metadata in Metax API
         try:
             dataset_modified = get_dataset_modified_from_metax(dataset)
+        except DatasetNotFound as err:
+            abort(404, err)
         except ConnectionError:
+            abort(500)
+        except MissingFieldsInResponse:
             abort(500)
         except UnexpectedStatusCode:
             abort(500)
