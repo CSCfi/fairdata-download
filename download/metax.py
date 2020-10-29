@@ -61,7 +61,10 @@ def get_metax(resource):
     url = current_app.config['METAX_URL'] + 'rest/v1/' + resource
     try:
         current_app.logger.debug("Requesting Metax API '%s'" % url)
-        return get(url)
+        return get(
+            url,
+            auth=(current_app.config['METAX_USER'],
+                  current_app.config['METAX_PASS']))
     except ConnectionError:
         current_app.logger.error(
             "Unable to connect to Metax API on '%s'"

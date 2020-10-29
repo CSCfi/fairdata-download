@@ -26,3 +26,5 @@ JWT_TTL = 60
 
 # Metax API
 METAX_URL = 'http://metax.local/'
+METAX_USER = 'download'
+METAX_PASS = 'download'
