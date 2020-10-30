@@ -10,6 +10,7 @@ from flask import Flask
 
 from . import cache, db, generator, mq
 from .views import download_service
+from .healthcheck import healthcheck
 
 def create_flask_app():
     """"Application Factory for Download Service Flask application"""
@@ -25,6 +26,7 @@ def create_flask_app():
     generator.init_app(app)
 
     app.register_blueprint(download_service)
+    app.register_blueprint(healthcheck, url_prefix='/health')
 
     if os.environ.get('FLASK_ENV') != 'production':
         from .swagger import download_service_swagger, \

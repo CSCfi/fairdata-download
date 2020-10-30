@@ -8,6 +8,19 @@ import click
 from flask import current_app, g
 from flask.cli import AppGroup
 from pika import BlockingConnection, ConnectionParameters, PlainCredentials
+from pika.exceptions import AMQPConnectionError
+from socket import gaierror
+
+class UnableToConnectToMQ(Exception):
+    def __init__(self, *args):
+        if args[0]:
+            self.host = args[0]
+
+    def __str__(self):
+        if self.host:
+            return "Unable to connect to message queue on %s" % self.host
+        else:
+            return "Unable to connect to message queue"
 
 def get_mq():
     """Returns message queue connection from current context or creates new
@@ -22,11 +35,17 @@ def get_mq():
             host=current_app.config['MQ_HOST'],
             virtual_host=current_app.config['MQ_VHOST'],
             credentials=credentials)
-        g.mq = BlockingConnection(connection_params)
+        try:
+            g.mq = BlockingConnection(connection_params)
 
-        current_app.logger.debug(
-            'Connected to message queue on %s' %
-            (current_app.config['MQ_HOST'], ))
+            current_app.logger.debug(
+                'Connected to message queue on %s' %
+                (current_app.config['MQ_HOST'], ))
+        except (AMQPConnectionError, OSError, gaierror):
+            current_app.logger.error(
+                'Unable to connect to message queue on %s' %
+                (current_app.config['MQ_HOST'], ))
+            raise UnableToConnectToMQ(current_app.config['MQ_HOST'])
 
     return g.mq
 
