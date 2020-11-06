@@ -26,7 +26,7 @@ def create_flask_app():
 
     app.register_blueprint(download_service)
 
-    if os.environ.get('DOWNLOAD_SERVICE_SETTINGS') != 'production':
+    if os.environ.get('FLASK_ENV') != 'production':
         from .swagger import download_service_swagger, \
                              download_service_swagger_ui
         app.register_blueprint(download_service_swagger)
