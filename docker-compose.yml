@@ -16,6 +16,16 @@ services:
       - source: dev-test-data
         target: /etc/fairdata-download-service/test-data.cfg
 
+  download-generator:
+    image: fairdata-download-generator
+    environment:
+      DOWNLOAD_SERVICE_SETTINGS: '/etc/fairdata-download-service/settings.cfg'
+    volumes:
+      - .:/app
+    configs:
+      - source: dev-config
+        target: /etc/fairdata-download-service/settings.cfg
+
   rabbitmq:
     image: rabbitmq:management
     environment:
