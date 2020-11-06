@@ -14,23 +14,24 @@ from jwt import decode, encode, ExpiredSignatureError
 from jwt.exceptions import DecodeError
 from requests.exceptions import ConnectionError
 
-from .cache import get_datasets_dir
-from .db import get_download_record, get_request_scopes, \
-                get_task_for_package, get_task_rows, create_download_record, \
-                create_request_scope, create_task_rows, get_package_row, \
-                get_generate_scope_filepaths, update_download_record
-from .metax import get_dataset_modified_from_metax, \
-                   get_matching_project_identifier_from_metax, \
-                   get_matching_dataset_files_from_metax, \
-                   DatasetNotFound, UnexpectedStatusCode, \
-                   MissingFieldsInResponse, NoMatchingFilesFound
-from .utils import convert_utc_timestamp, format_datetime
-from .model.requests import AuthorizePostData, DownloadQuerySchema, \
-                            RequestsPostData, RequestsQuerySchema
+from ..services.cache import get_datasets_dir
+from ..services.db import get_download_record, get_request_scopes, \
+                          get_task_for_package, get_task_rows, \
+                          create_download_record, create_request_scope, \
+                          create_task_rows, get_package_row, \
+                          get_generate_scope_filepaths, update_download_record
+from ..services.metax import get_dataset_modified_from_metax, \
+                             get_matching_project_identifier_from_metax, \
+                             get_matching_dataset_files_from_metax, \
+                             DatasetNotFound, UnexpectedStatusCode, \
+                             MissingFieldsInResponse, NoMatchingFilesFound
+from ..utils import convert_utc_timestamp, format_datetime
+from ..model.requests import AuthorizePostData, DownloadQuerySchema, \
+                             RequestsPostData, RequestsQuerySchema
 
-download_service = Blueprint('download', __name__)
+download_api = Blueprint('download-api', __name__)
 
-@download_service.route('/requests', methods=['GET'])
+@download_api.route('/requests', methods=['GET'])
 def get_request():
     """
     Internally available end point for file generation request data.
@@ -127,7 +128,7 @@ def get_request():
 
     return jsonify(response)
 
-@download_service.route('/requests', methods=['POST'])
+@download_api.route('/requests', methods=['POST'])
 def post_request():
     """Internally available end point for initiating file generation.
 
@@ -205,7 +206,7 @@ def post_request():
 
     # Create new task if no such already exists
     if not task_row:
-        from .celery import generate_task
+        from ..celery import generate_task
         task = generate_task.delay(
             dataset,
             project_identifier,
@@ -261,7 +262,7 @@ def post_request():
 
     return jsonify(response)
 
-@download_service.route('/authorize', methods=['POST'])
+@download_api.route('/authorize', methods=['POST'])
 def authorize():
     """Internally available end point for authorizing requesting clients.
 
@@ -373,7 +374,7 @@ def authorize():
         token=jwt_token.decode()
     )
 
-@download_service.route('/download', methods=['GET'])
+@download_api.route('/download', methods=['GET'])
 def download():
     """Publically accessible with valid single-use token.
 
@@ -531,31 +532,31 @@ def download():
     return Response(stream_with_context(stream_response()),
                     headers=response_headers)
 
-@download_service.errorhandler(400)
+@download_api.errorhandler(400)
 def bad_request(error):
     """Error handler for HTTP 400."""
     current_app.logger.error(error)
     return jsonify(name=error.name, error=str(error.description)), 400
 
-@download_service.errorhandler(401)
+@download_api.errorhandler(401)
 def unauthorized(error):
     """Error handler for HTTP 401."""
     current_app.logger.error(error)
     return jsonify(name=error.name, error=str(error.description)), 401
 
-@download_service.errorhandler(404)
+@download_api.errorhandler(404)
 def resource_not_found(error):
     """Error handler for HTTP 404."""
     current_app.logger.error(error)
     return jsonify(name=error.name, error=str(error.description)), 404
 
-@download_service.errorhandler(409)
+@download_api.errorhandler(409)
 def conflict(error):
     """Error handler for HTTP 409."""
     current_app.logger.error(error)
     return jsonify(name=error.name, error=str(error.description)), 409
 
-@download_service.errorhandler(500)
+@download_api.errorhandler(500)
 def internal_server_error(error):
     """Error handler for HTTP 500."""
     current_app.logger.error(error)

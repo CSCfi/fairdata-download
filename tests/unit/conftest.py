@@ -12,8 +12,8 @@ from jwt.exceptions import DecodeError
 from pika.spec import BasicProperties
 
 from download import create_flask_app
-from download.db import init_db, close_db, get_db
-from download.mq import init_mq, close_mq, get_mq
+from download.services.db import init_db, close_db, get_db
+from download.services.mq import init_mq, close_mq, get_mq
 
 @pytest.fixture
 def ida_dir():
@@ -111,14 +111,14 @@ def mock_init_db(monkeypatch, recorder):
     def fake_init_db():
         recorder.called = True
 
-    monkeypatch.setattr('download.db.init_db', fake_init_db)
+    monkeypatch.setattr('download.services.db.init_db', fake_init_db)
 
 @pytest.fixture
 def mock_init_mq(monkeypatch, recorder):
     def fake_init_mq():
         recorder.called = True
 
-    monkeypatch.setattr('download.mq.init_mq', fake_init_mq)
+    monkeypatch.setattr('download.services.mq.init_mq', fake_init_mq)
 
 @pytest.fixture
 def mock_celery(monkeypatch, recorder, celery_task):
@@ -142,8 +142,8 @@ def mock_metax(monkeypatch, recorder, metax_response, metax_dataset_files_respon
         recorder.called = True
         return metax_dataset_files_response
 
-    monkeypatch.setattr('download.metax.get_dataset_files', mock_get_dataset_filess)
-    monkeypatch.setattr('download.metax.get_metax', mock_get_metax)
+    monkeypatch.setattr('download.services.metax.get_dataset_files', mock_get_dataset_filess)
+    monkeypatch.setattr('download.services.metax.get_metax', mock_get_metax)
 
 @pytest.fixture
 def not_found_dataset():

@@ -57,7 +57,7 @@ def init_db():
     """
     db_conn = get_db()
 
-    with current_app.open_resource('create_tables.sql') as migration_file:
+    with current_app.open_resource('sql/create_tables.sql') as migration_file:
         db_conn.executescript(migration_file.read().decode('utf8'))
 
     current_app.logger.debug(

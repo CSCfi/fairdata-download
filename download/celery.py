@@ -7,7 +7,7 @@
 from celery import Celery, Task
 
 from . import create_flask_app
-from .generator import generate
+from .services.generator import generate
 
 def create_celery_app(app=None):
     """Celery application factory. Hooks task execution into Flask application

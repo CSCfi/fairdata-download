@@ -12,7 +12,7 @@ from flask import current_app
 from requests import get
 from requests.exceptions import ConnectionError
 
-from .utils import startswithpath
+from ..utils import startswithpath
 
 class UnexpectedStatusCode(Exception):
     pass

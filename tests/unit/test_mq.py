@@ -1,7 +1,7 @@
 import click
 import pytest
 
-from download.mq import get_mq, init_mq
+from download.services.mq import get_mq, init_mq
 
 def test_init_command_confirm(runner, mock_init_mq, recorder):
     result = runner.invoke(args=['mq', 'init'], input='y\n')

@@ -8,9 +8,9 @@ import os
 
 from flask import Flask
 
-from . import cache, db, generator, mq
-from .views import download_service
-from .healthcheck import healthcheck
+from .services import cache, db, generator, mq
+from .blueprints.download_api import download_api
+from .blueprints.healthcheck import healthcheck
 
 def create_flask_app():
     """"Application Factory for Download Service Flask application"""
@@ -25,14 +25,14 @@ def create_flask_app():
     mq.init_app(app)
     generator.init_app(app)
 
-    app.register_blueprint(download_service)
+    app.register_blueprint(download_api)
     app.register_blueprint(healthcheck, url_prefix='/health')
 
     if os.environ.get('FLASK_ENV') != 'production':
-        from .swagger import download_service_swagger, \
-                             download_service_swagger_ui
-        app.register_blueprint(download_service_swagger)
-        app.register_blueprint(download_service_swagger_ui,
+        from .blueprints.swagger import download_api_swagger, \
+                                        download_api_swagger_ui
+        app.register_blueprint(download_api_swagger)
+        app.register_blueprint(download_api_swagger_ui,
                                url_prefix='/api/docs')
 
     return app

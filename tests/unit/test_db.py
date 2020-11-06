@@ -1,7 +1,7 @@
 import pytest
 import sqlite3
 
-from download.db import get_db
+from download.services.db import get_db
 
 def test_close(flask_app):
     with flask_app.app_context():

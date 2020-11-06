@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from flask import Blueprint, abort, current_app, jsonify
 from celery.app.control import Inspect
 
-from .mq import UnableToConnectToMQ, get_mq
+from ..services.mq import UnableToConnectToMQ, get_mq
 
 healthcheck = Blueprint('healthcheck', __name__)
 
@@ -38,7 +38,7 @@ def get_health():
               type: string
               example: "2020-10-30T11:14:20+00:00"
     """
-    from .celery import celery_app
+    from ..celery import celery_app
 
     errors = []
     try:
