@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from flask import Blueprint, abort, current_app, jsonify
 from celery.app.control import Inspect
 
+from ..services import mq
 from ..services.mq import UnableToConnectToMQ, get_mq
 
 healthcheck = Blueprint('healthcheck', __name__)
@@ -42,7 +43,7 @@ def get_health():
 
     errors = []
     try:
-        get_mq()
+        mq.get_mq()
     except UnableToConnectToMQ as err:
         errors.append(str(err))
 

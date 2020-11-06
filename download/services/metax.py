@@ -6,10 +6,10 @@
 
     Currently API v1 is used.
 """
+import requests
 from datetime import datetime
 
 from flask import current_app
-from requests import get
 from requests.exceptions import ConnectionError
 
 from ..utils import startswithpath
@@ -61,7 +61,7 @@ def get_metax(resource):
     url = current_app.config['METAX_URL'] + 'rest/v1/' + resource
     try:
         current_app.logger.debug("Requesting Metax API '%s'" % url)
-        return get(
+        return requests.get(
             url,
             auth=(current_app.config['METAX_USER'],
                   current_app.config['METAX_PASS']))

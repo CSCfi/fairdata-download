@@ -20,6 +20,7 @@ from ..services.db import get_download_record, get_request_scopes, \
                           create_download_record, create_request_scope, \
                           create_task_rows, get_package_row, \
                           get_generate_scope_filepaths, update_download_record
+from ..services import metax
 from ..services.metax import get_dataset_modified_from_metax, \
                              get_matching_project_identifier_from_metax, \
                              get_matching_dataset_files_from_metax, \
@@ -185,7 +186,7 @@ def post_request():
         abort(500)
 
     try:
-        generate_scope, project_identifier, is_partial = get_matching_dataset_files_from_metax(dataset, request_scope)
+        generate_scope, project_identifier, is_partial = metax.get_matching_dataset_files_from_metax(dataset, request_scope)
     except ConnectionError:
         abort(500)
     except UnexpectedStatusCode:

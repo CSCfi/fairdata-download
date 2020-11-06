@@ -1,5 +1,4 @@
-from datetime import datetime, timedelta
-from json import loads
+import json
 import os
 import shutil
 import sqlite3
@@ -7,13 +6,16 @@ import tempfile
 
 import pytest
 
-from jwt import decode, encode, ExpiredSignatureError
-from jwt.exceptions import DecodeError
 from pika.spec import BasicProperties
+from requests.exceptions import ConnectionError
 
 from download import create_flask_app
+from download.services import mq
 from download.services.db import init_db, close_db, get_db
-from download.services.mq import init_mq, close_mq, get_mq
+
+from testutils.download import create_dataset
+from testutils.misc import CeleryTask, Recorder
+from testutils.metax import MetaxDatasetResponse, MetaxDatasetFilesResponse
 
 @pytest.fixture
 def ida_dir():
@@ -57,45 +59,12 @@ def flask_app(cache_dir, ida_dir, db):
     return flask_app
 
 @pytest.fixture
-def client(flask_app):
-    return flask_app.test_client()
-
-@pytest.fixture
-def runner(flask_app):
-    return flask_app.test_cli_runner()
-
-@pytest.fixture
 def recorder():
-    class Recorder(object):
-        called = False
-
     return Recorder()
 
 @pytest.fixture
 def celery_task():
-    class CeleryTask(object):
-        id = 1
     return CeleryTask()
-
-@pytest.fixture
-def metax_response():
-    class MetaxResponse(object):
-        status_code = 200
-        text = '{ "date_modified": "2020-07-04T18:06:24+03:00" }'
-
-        def json(self):
-            return loads(self.text)
-
-    return MetaxResponse()
-
-@pytest.fixture
-def metax_dataset_files_response():
-    return [
-        {
-          "project_identifier": "test_project",
-          "file_path": "/test/file.txt"
-          }
-        ]
 
 @pytest.fixture(autouse=True)
 def mock_requests_get(monkeypatch):
@@ -107,20 +76,6 @@ def mock_requests_get(monkeypatch):
     monkeypatch.setattr('requests.get', skip_requesting_test)
 
 @pytest.fixture
-def mock_init_db(monkeypatch, recorder):
-    def fake_init_db():
-        recorder.called = True
-
-    monkeypatch.setattr('download.services.db.init_db', fake_init_db)
-
-@pytest.fixture
-def mock_init_mq(monkeypatch, recorder):
-    def fake_init_mq():
-        recorder.called = True
-
-    monkeypatch.setattr('download.services.mq.init_mq', fake_init_mq)
-
-@pytest.fixture
 def mock_celery(monkeypatch, recorder, celery_task):
     def mock_generate_task(dataset, project_identifier, scope):
         recorder.called = True
@@ -130,188 +85,91 @@ def mock_celery(monkeypatch, recorder, celery_task):
         'download.celery.generate_task.delay', mock_generate_task)
 
 @pytest.fixture
-def mock_metax(monkeypatch, recorder, metax_response, metax_dataset_files_response):
-    def mock_get_metax(resource):
+def metax_dataset_available(monkeypatch):
+    def metax_get_available(url, auth={}):
+        return MetaxDatasetResponse("no-tasks", 200)
+    monkeypatch.setattr('requests.get', metax_get_available)
+
+@pytest.fixture
+def metax_dataset_not_found(monkeypatch):
+    def metax_get_not_found(url, auth={}):
+        return MetaxDatasetResponse("not-found", 404)
+    monkeypatch.setattr('requests.get', metax_get_not_found)
+
+@pytest.fixture
+def metax_cannot_connect(monkeypatch):
+    def metax_get_cannot_connect(url, auth={}):
+        raise ConnectionError
+    monkeypatch.setattr('requests.get', metax_get_cannot_connect)
+
+@pytest.fixture
+def metax_missing_fields(monkeypatch):
+    def metax_get_metax_missing_fields(url, auth={}):
+        return MetaxDatasetResponse("missing-fields", 200)
+    monkeypatch.setattr('requests.get', metax_get_metax_missing_fields)
+
+@pytest.fixture
+def metax_unexpected_status_code(monkeypatch):
+    def metax_get_unexpected_status_code(url, auth={}):
+        return MetaxDatasetResponse("missing-fields", 521)
+    monkeypatch.setattr('requests.get', metax_get_unexpected_status_code)
+
+@pytest.fixture
+def metax_dataset_files_available(monkeypatch):
+    def metax_get_files_available(url, auth={}):
+        return MetaxDatasetFilesResponse("no-tasks", 200)
+    monkeypatch.setattr('requests.get', metax_get_files_available)
+
+@pytest.fixture
+def mock_metax(monkeypatch, recorder):
+    def mock_get_metax(url, auth={}):
         recorder.called = True
-        if resource.endswith('files'):
-            return metax_dataset_files_response
+        if url.endswith('files'):
+            return MetaxDatasetFilesResponse("no-tasks", 200)
         else:
-            return metax_response
+            return MetaxDatasetResponse("no-tasks", 200)
 
-    def mock_get_dataset_filess(resource):
+    monkeypatch.setattr('requests.get', mock_get_metax)
+
+@pytest.fixture
+def mock_metax_modified(monkeypatch, recorder):
+    def mock_get_metax(url, auth={}):
         recorder.called = True
-        return metax_dataset_files_response
+        if url.endswith('files'):
+            return MetaxDatasetFilesResponse("success-modified", 200)
+        else:
+            return MetaxDatasetResponse("success-modified", 200)
 
-    monkeypatch.setattr('download.services.metax.get_dataset_files', mock_get_dataset_filess)
-    monkeypatch.setattr('download.services.metax.get_metax', mock_get_metax)
-
-@pytest.fixture
-def not_found_dataset():
-    TEST_NOT_FOUND_DATASET = 'test_dataset_01'
-
-    return {'pid': TEST_NOT_FOUND_DATASET, 'project_identifier': 'test_project', 'files': ['/test/file.txt']}
+    monkeypatch.setattr('requests.get', mock_get_metax)
 
 @pytest.fixture
-def pending_dataset(flask_app):
-    TEST_PENDING_DATASET = 'test_dataset_02'
-    TEST_PENDING_TASK = 'test_task_02'
-    TEST_PENDING_FILES = ['/test/file.txt']
-
-    with flask_app.app_context():
-        # Add database record
-        db_conn = get_db()
-        db_cursor = db_conn.cursor()
-
-        db_cursor.execute(
-            "INSERT INTO generate_task (dataset_id, task_id, initiated, status, is_partial) "
-            "VALUES (?, ?, '2020-07-20 14:05:21', 'PENDING', 0)",
-            (TEST_PENDING_DATASET, TEST_PENDING_TASK)
-        )
-        for filepath in TEST_PENDING_FILES:
-            db_cursor.execute(
-                "INSERT INTO generate_scope (task_id, filepath) "
-                "VALUES (?, ?)",
-                (TEST_PENDING_TASK, filepath)
-            )
-
-        db_conn.commit()
-
-    # Add ida file
-    test_dir = os.path.join(flask_app.config['IDA_DATA_ROOT'], TEST_PENDING_DATASET)
-    os.makedirs(test_dir)
-    test_file = os.path.join(test_dir, 'test.txt')
-    with open(test_file, 'w+') as f:
-        f.write('test')
-
-    return {'pid': TEST_PENDING_DATASET, 'project_identifier': 'test_project', 'files': TEST_PENDING_FILES}
-
-@pytest.fixture
-def started_dataset(flask_app):
-    TEST_STARTED_DATASET = 'test_dataset_03'
-    TEST_STARTED_TASK = 'test_task_03'
-    TEST_STARTED_FILES = ['/test/file.txt']
-
-    with flask_app.app_context():
-        # Add database record
-        db_conn = get_db()
-        db_cursor = db_conn.cursor()
-
-        db_cursor.execute(
-            "INSERT INTO generate_task (dataset_id, task_id, initiated, status, is_partial) "
-            "VALUES (?, ?, '2020-07-20 14:05:21', 'STARTED', 0)",
-            (TEST_STARTED_DATASET, TEST_STARTED_TASK,)
-        )
-        for filepath in TEST_STARTED_FILES:
-            db_cursor.execute(
-                "INSERT INTO generate_scope (task_id, filepath) "
-                "VALUES (?, ?)",
-                (TEST_STARTED_TASK, filepath)
-            )
-
-        db_conn.commit()
-
-    # Add ida file
-    test_dir = os.path.join(flask_app.config['IDA_DATA_ROOT'], TEST_STARTED_DATASET)
-    os.makedirs(test_dir)
-    test_file = os.path.join(test_dir, 'test.txt')
-    with open(test_file, 'w+') as f:
-        f.write('test')
-
-    return {'pid': TEST_STARTED_DATASET}
-
-@pytest.fixture
-def available_dataset(flask_app):
-    TEST_AVAILABLE_DATASET = 'test_dataset_04'
-    TEST_AVAILABLE_PACKAGE = TEST_AVAILABLE_DATASET + '.zip'
-    TEST_AVAILABLE_TASK = 'test_task_04'
-    TEST_AVAILABLE_FILES = ['/test/file.txt']
-
-    with flask_app.app_context():
-        # Add database record
-        db_conn = get_db()
-        db_cursor = db_conn.cursor()
-
-        db_cursor.execute(
-            "INSERT INTO generate_task (dataset_id, task_id, status, is_partial, initiated, date_done) "
-            "VALUES (?, ?, 'SUCCESS', 0, '2020-07-20 14:05:21', '2020-08-07 08:44:31.186078')",
-            (TEST_AVAILABLE_DATASET, TEST_AVAILABLE_TASK,)
-        )
-        for filepath in TEST_AVAILABLE_FILES:
-            db_cursor.execute(
-                "INSERT INTO generate_scope (task_id, filepath) "
-                "VALUES (?, ?)",
-                (TEST_AVAILABLE_TASK, filepath)
-            )
-        db_cursor.execute(
-            "INSERT INTO package (filename, size_bytes, checksum, generated_by) "
-            "VALUES (?, '19070072', 'sha256:98fcf5d6c57d0484bcb50f9c99f4870f5a45c70b62ce6e6edbbcabffa479094e', ?)",
-            (TEST_AVAILABLE_PACKAGE, TEST_AVAILABLE_TASK)
-        )
-        db_conn.commit()
-
-    # Add ida file
-    test_dir = os.path.join(flask_app.config['IDA_DATA_ROOT'], TEST_AVAILABLE_DATASET)
-    os.makedirs(test_dir)
-    test_file = os.path.join(test_dir, 'test.txt')
-    with open(test_file, 'w+') as f:
-        f.write('test')
-
-    # Add cache file
-    test_package = os.path.join(
-        flask_app.config['DOWNLOAD_CACHE_DIR'], 'datasets', TEST_AVAILABLE_PACKAGE)
-    with open(test_package, 'w+') as testfile:
-        testfile.write('testcontent')
-
-    return {'pid': TEST_AVAILABLE_DATASET, 'package': TEST_AVAILABLE_PACKAGE}
-
-@pytest.fixture
-def valid_auth_token(flask_app, available_dataset):
-    expired = datetime.utcnow() + timedelta(hours=flask_app.config['JWT_TTL'])
-    jwt_payload = {
-        'exp': expired,
-        'dataset': available_dataset['pid'],
-        'package': available_dataset['package']
+def not_found_task(flask_app):
+    return {
+        "dataset_id": "1",
+        "project_identifier": "2009999",
+        "files": ["/test1/file1.txt"]
     }
 
-    jwt_token = encode(
-        jwt_payload,
-        flask_app.config['JWT_SECRET'],
-        algorithm=flask_app.config['JWT_ALGORITHM'])
-
-    return jwt_token.decode()
+@pytest.fixture
+def pending_task(flask_app):
+    return create_dataset(flask_app, "pending")
 
 @pytest.fixture
-def expired_auth_token(flask_app, available_dataset):
-    expired = datetime.utcnow() - timedelta(hours=1)
-    jwt_payload = {
-        'exp': expired,
-        'dataset': available_dataset['pid'],
-        'package': available_dataset['package']
-    }
-
-    jwt_token = encode(
-        jwt_payload,
-        flask_app.config['JWT_SECRET'],
-        algorithm=flask_app.config['JWT_ALGORITHM'])
-
-    return jwt_token.decode()
+def pending_partial_task(flask_app):
+    return create_dataset(flask_app, "pending-partial")
 
 @pytest.fixture
-def not_found_dataset_auth_token(flask_app, not_found_dataset):
-    expired = datetime.utcnow() + timedelta(hours=flask_app.config['JWT_TTL'])
-    jwt_payload = {
-        'exp': expired,
-        'dataset': not_found_dataset['pid'],
-        'package': 'test.zip'
-    }
-
-    jwt_token = encode(
-        jwt_payload,
-        flask_app.config['JWT_SECRET'],
-        algorithm=flask_app.config['JWT_ALGORITHM'])
-
-    return jwt_token.decode()
+def started_task(flask_app):
+    return create_dataset(flask_app, "started")
 
 @pytest.fixture
-def invalid_auth_token(flask_app):
-    return 'invalid'
+def success_task(flask_app):
+    return create_dataset(flask_app, "success")
+
+@pytest.fixture
+def success_partial_task(flask_app):
+    return create_dataset(flask_app, "success-partial")
+
+@pytest.fixture
+def success_partial_2_task(flask_app):
+    return create_dataset(flask_app, "success-partial-2")

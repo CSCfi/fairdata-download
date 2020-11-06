@@ -1,0 +1,92 @@
+[
+  {
+    "file_modified": "2019-10-24T16:59:54+03:00",
+    "checksum": {
+      "value": "572abab662eac1de3a729ba7adb2c57f3cfcc3562c1d8e1dd144a24405beca1c",
+      "checked": "2019-10-28T11:55:56Z",
+      "algorithm": "SHA-256"
+    },
+    "identifier": "5db6lenbrblisseslg6480f30485408",
+    "open_access": true,
+    "byte_size": 237157,
+    "service_created": "ida",
+    "project_identifier": "2009999",
+    "file_name": "pyrheliometer-2012-07-alldata.zip",
+    "date_created": "2019-10-28T13:55:56+02:00",
+    "removed": false,
+    "file_path": "/test1/file1.txt",
+    "id": 31586500,
+    "user_created": "example@example",
+    "file_format": "txt",
+    "parent_directory": {
+      "identifier": "9sdrndsleg9431c0ad5c221109f34029",
+      "id": 1358154
+    },
+    "file_storage": {
+      "identifier": "urn:nbn:fi:att:file-storage-ida",
+      "id": 1
+    },
+    "file_uploaded": "2019-10-28T13:55:56+02:00",
+    "file_frozen": "2019-10-28T13:21:57+02:00"
+  },
+  {
+    "file_modified": "2019-10-24T16:59:54+03:00",
+    "checksum": {
+      "value": "572abab662eac1de3a729ba7adb2c57f3cfcc3562c1d8e1dd144a24405beca1c",
+      "checked": "2019-10-28T11:55:56Z",
+      "algorithm": "SHA-256"
+    },
+    "identifier": "5db6lenbrblisseslg6480f30485408",
+    "open_access": true,
+    "byte_size": 237157,
+    "service_created": "ida",
+    "project_identifier": "2009999",
+    "file_name": "pyrheliometer-2012-07-alldata.zip",
+    "date_created": "2019-10-28T13:55:56+02:00",
+    "removed": false,
+    "file_path": "/test2/file2.txt",
+    "id": 31586500,
+    "user_created": "example@example",
+    "file_format": "txt",
+    "parent_directory": {
+      "identifier": "9sdrndsleg9431c0ad5c221109f34029",
+      "id": 1358154
+    },
+    "file_storage": {
+      "identifier": "urn:nbn:fi:att:file-storage-ida",
+      "id": 1
+    },
+    "file_uploaded": "2019-10-28T13:55:56+02:00",
+    "file_frozen": "2019-10-28T13:21:57+02:00"
+  },
+  {
+    "file_modified": "2019-10-24T16:59:54+03:00",
+    "checksum": {
+      "value": "572abab662eac1de3a729ba7adb2c57f3cfcc3562c1d8e1dd144a24405beca1c",
+      "checked": "2019-10-28T11:55:56Z",
+      "algorithm": "SHA-256"
+    },
+    "identifier": "5dwelseselghsseslg6480f30485408",
+    "open_access": true,
+    "byte_size": 237157,
+    "service_created": "ida",
+    "project_identifier": "2009999",
+    "file_name": "pyrheliometer-2012-07-alldata.zip",
+    "date_created": "2019-10-28T13:55:56+02:00",
+    "removed": false,
+    "file_path": "/test2/file3.txt",
+    "id": 31586500,
+    "user_created": "example@example",
+    "file_format": "txt",
+    "parent_directory": {
+      "identifier": "9sdrndsleg9431c0ad5c221109f34029",
+      "id": 1358154
+    },
+    "file_storage": {
+      "identifier": "urn:nbn:fi:att:file-storage-ida",
+      "id": 1
+    },
+    "file_uploaded": "2019-10-28T13:55:56+02:00",
+    "file_frozen": "2019-10-28T13:21:57+02:00"
+  }
+]
