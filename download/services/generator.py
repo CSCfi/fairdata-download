@@ -32,8 +32,8 @@ def generate(dataset, project_identifier, scope, requestor_id):
 
     # Generate file
     current_app.logger.info(
-        "Generating download file for dataset '%s' with scope '%s'..." %
-        (dataset, scope or 'full'))
+        "Generating download file for dataset '%s' with %s scoped files" %
+        (dataset, len(scope)))
 
     source_root = os.path.join(
         current_app.config['IDA_DATA_ROOT'],
