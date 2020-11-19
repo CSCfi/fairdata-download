@@ -516,10 +516,10 @@ def download():
       download_id = create_download_record(auth_token, package or filepath)
       try:
         with open(filename, "rb") as f:
-          chunk = f.read(128)
+          chunk = f.read(1024)
           while chunk != b"":
             yield chunk
-            chunk = f.read(128)
+            chunk = f.read(1024)
         update_download_record(download_id)
       except:
         update_download_record(download_id, False)
