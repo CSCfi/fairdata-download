@@ -1,0 +1,5 @@
+flask-swagger==0.2.14
+flask-swagger-ui==3.25.0
+pylint==2.5.3
+pytest==5.4.3
+coverage==5.2

@@ -1,0 +1,12 @@
+{
+  "id": 2,
+  "task_id": "fasdf1a1-62f8-4b82-97d9-7be5badd7d5f",
+  "dataset_id": "2",
+  "is_partial": 0,
+  "status": "PENDING",
+  "initiated": "2020-07-20 14:05:21",
+  "date_done": "",
+  "result": "",
+  "traceback": "",
+  "retries": ""
+}
