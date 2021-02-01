@@ -3,6 +3,13 @@ workflow:
     - if: '$CI_COMMIT_BRANCH == "test"'
     - if: '$CI_COMMIT_BRANCH == "stable"'
     - if: '$CI_COMMIT_BRANCH == "demo"'
+    - if: '$CI_COMMIT_BRANCH == "staging"'
+
+include:
+  - project: fairdata/fairdata-ci
+    ref: staging
+    file:
+      - /templates/deploy.yml
 
 stages:
   - test
@@ -17,10 +24,3 @@ run_unit_tests:
     - pip install -r requirements-dev.txt
     - coverage run -m pytest
     - coverage report -m
-
-deploy:
-  stage: deploy
-  environment:
-    name: $CI_COMMIT_BRANCH
-  script:
-    - ansible-playbook --key-file $DEPLOY_KEY_FILE -i $ANSIBLE_INVENTORY $DEPLOY_PLAYBOOK
