@@ -476,7 +476,7 @@ def download():
 
         filename = path.join(
             current_app.config['IDA_DATA_ROOT'],
-            'PDO_%s' % project_identifier,
+            'PSO_%s' % project_identifier,
             'files',
             project_identifier,
             ) + filepath
