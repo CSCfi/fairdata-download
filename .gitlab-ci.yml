@@ -1,19 +1,18 @@
-workflow:
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "test"'
-    - if: '$CI_COMMIT_BRANCH == "stable"'
-    - if: '$CI_COMMIT_BRANCH == "demo"'
-    - if: '$CI_COMMIT_BRANCH == "staging"'
+variables:
+  INSTANCE: download-$CI_COMMIT_REF_SLUG
+  VERSION: $CI_COMMIT_BRANCH
 
 include:
   - project: fairdata/fairdata-ci
     ref: staging
     file:
       - /templates/deploy.yml
+      - /templates/review.yml
 
 stages:
   - test
   - deploy
+  - clean
 
 run_unit_tests:
   stage: test
