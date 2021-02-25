@@ -44,6 +44,15 @@ class TestGetRequest:
         response = client.get(self.endpoint, query_string=query_string)
         assert response.status_code == 200
 
+    def test_success_no_package(self, client, mock_metax, success_no_package_task):
+        query_string = {
+            'dataset': success_no_package_task['dataset_id']
+        }
+        response = client.get(self.endpoint, query_string=query_string)
+        json_response = response.get_json()
+
+        assert response.status_code == 404
+
     def test_success_partial(self,
                              client,
                              mock_metax,
@@ -175,6 +184,16 @@ class TestPostRequest:
         })
         assert response.status_code == 200
         assert response.get_json()['created'] is False
+
+    def test_succesful_task_with_no_package(self,
+                                            client,
+                                            mock_metax,
+                                            success_no_package_task):
+        response = client.post(self.endpoint, json={
+            'dataset': success_no_package_task['dataset_id']
+        })
+        assert response.status_code == 200
+        assert response.get_json()['created'] is True
 
     def test_request_for_existing_succesful_partial_task(self,
                                                          client,
