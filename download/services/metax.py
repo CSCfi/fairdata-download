@@ -12,7 +12,7 @@ from datetime import datetime
 from flask import current_app
 from requests.exceptions import ConnectionError
 
-from ..utils import startswithpath
+from ..utils import convert_timestamp_to_utc, startswithpath
 
 class UnexpectedStatusCode(Exception):
     pass
@@ -126,11 +126,11 @@ def get_dataset_modified_from_metax(dataset_id):
     date_modified = metax_response.get('date_modified')
 
     if date_modified:
-        return datetime.fromisoformat(date_modified)
+        return convert_timestamp_to_utc(date_modified)
     else:
         date_created = metax_response.get('date_created')
         if date_created:
-            return datetime.fromisoformat(date_created)
+            return convert_timestamp_to_utc(datetime.fromisoformat(date_created))
         else:
             current_app.logger.error(("'date_modified' field for dataset '%s' "
                                       "could not be found in Metax API response "

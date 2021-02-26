@@ -53,6 +53,15 @@ class TestGetRequest:
 
         assert response.status_code == 404
 
+    def test_success_not_outdated(self, client, mock_metax, success_not_outdated_task):
+        query_string = {
+            'dataset': success_not_outdated_task['dataset_id']
+        }
+        response = client.get(self.endpoint, query_string=query_string)
+        json_response = response.get_json()
+
+        assert response.status_code == 200
+
     def test_success_partial(self,
                              client,
                              mock_metax,

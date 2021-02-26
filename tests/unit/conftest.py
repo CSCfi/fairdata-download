@@ -171,6 +171,10 @@ def success_no_package_task(flask_app):
     return create_dataset(flask_app, "success-no-package")
 
 @pytest.fixture
+def success_not_outdated_task(flask_app):
+    return create_dataset(flask_app, "success-not-outdated")
+
+@pytest.fixture
 def success_partial_task(flask_app):
     return create_dataset(flask_app, "success-partial")
 

@@ -5,6 +5,7 @@
     Utility module for Fairdata Download Service.
 """
 from datetime import datetime
+import pytz
 
 def convert_utc_timestamp(utc_timestamp):
     """Converts a string from UTC naive form to UTC localtime.
@@ -13,6 +14,13 @@ def convert_utc_timestamp(utc_timestamp):
                           timezone
     """
     return datetime.fromisoformat(utc_timestamp + '+00:00').astimezone()
+
+def convert_timestamp_to_utc(timestamp):
+    """Converts a string from UTC naive form to UTC localtime.
+
+    :param timestamp: Timestamp in an arbitrary timezone
+    """
+    return datetime.fromisoformat(timestamp).astimezone(pytz.utc)
 
 def format_datetime(utc_timestamp):
     """Formats given timestamp to the form returned by the Download Service.
