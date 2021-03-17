@@ -1,33 +1,33 @@
-version: '3.3'
+version: '3.8'
 
 services:
   download-server:
-    image: fairdata-download-server
-    environment:
-      DOWNLOAD_SERVICE_SETTINGS: '/etc/fairdata-download-service/settings.cfg'
-      DOWNLOAD_SERVICE_TEST_DATA: '/etc/fairdata-download-service/test-data.cfg'
+    image: fairdata-docker.artifactory.ci.csc.fi/fairdata-download-server
     ports:
       - 5000:5000
     volumes:
       - .:/app
-    configs:
-      - source: dev-config
-        target: /etc/fairdata-download-service/settings.cfg
-      - source: dev-test-data
-        target: /etc/fairdata-download-service/test-data.cfg
-
-  download-generator:
-    image: fairdata-download-generator
     environment:
       DOWNLOAD_SERVICE_SETTINGS: '/etc/fairdata-download-service/settings.cfg'
+      DOWNLOAD_SERVICE_TEST_DATA: '/etc/fairdata-download-service/e2e-test-settings.cfg'
+    configs:
+      - source: download-settings
+        target: '/etc/fairdata-download-service/settings.cfg'
+      - source: download-e2e-settings
+        target: '/etc/fairdata-download-service/e2e-test-settings.cfg'
+
+  download-generator:
+    image: fairdata-docker.artifactory.ci.csc.fi/fairdata-download-generator
     volumes:
       - .:/app
+    environment:
+      DOWNLOAD_SERVICE_SETTINGS: '/etc/fairdata-download-service/settings.cfg'
     configs:
-      - source: dev-config
-        target: /etc/fairdata-download-service/settings.cfg
+      - source: download-settings
+        target: '/etc/fairdata-download-service/settings.cfg'
 
-  rabbitmq:
-    image: rabbitmq:management
+  download-mq:
+    image: fairdata-docker.artifactory.ci.csc.fi/rabbitmq:management
     environment:
       RABBITMQ_DEFAULT_USER: download
       RABBITMQ_DEFAULT_PASS: download
@@ -35,8 +35,26 @@ services:
     ports:
       - 15672:15672
 
+  download-proxy:
+    image: fairdata-docker.artifactory.ci.csc.fi/nginx
+    configs:
+      - source: download-nginx-config
+        target: '/etc/nginx/nginx.conf'
+      - source: fairdata-ssl-certificate
+        target: '/etc/pki/tls/certs/ssl.crt.pem'
+      - source: fairdata-ssl-certificate-key
+        target: '/etc/pki/tls/private/ssl.key.pem'
+    ports:
+      - 4431:443
+
 configs:
-  dev-config:
-    file: ./settings.cfg.dev
-  dev-test-data:
-    file: ./test-data.cfg.dev
+  download-settings:
+    external: True
+  download-e2e-settings:
+    external: True
+  download-nginx-config:
+    external: True
+  fairdata-ssl-certificate:
+    external: True
+  fairdata-ssl-certificate-key:
+    external: True

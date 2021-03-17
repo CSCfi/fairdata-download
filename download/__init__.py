@@ -32,8 +32,7 @@ def create_flask_app():
         from .blueprints.swagger import download_api_swagger, \
                                         download_api_swagger_ui
         app.register_blueprint(download_api_swagger)
-        app.register_blueprint(download_api_swagger_ui,
-                               url_prefix='/api/docs')
+        app.register_blueprint(download_api_swagger_ui)
 
     return app
 

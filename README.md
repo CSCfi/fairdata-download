@@ -6,20 +6,33 @@
 The Fairdata download server (v2) which provides for packaging and download of
 published datasets, or subsets of datasets, available via Etsin.
 
-## Local Development
+## Installation
 
-### Install
+### Local Development
 
-Requirements for development server including can be installed with pip:
+Requirements for development server and generator can be installed with pip:
 
 ```
 pip install -r requirements.txt
 pip install -r requirements-dev.txt
 ```
 
-### Environment variables
+### Docker
 
-In order to run development server some environment variables need to be
+Repository includes Dockerfiles for server and generator processes for
+development environment setup. Images can be
+built by running:
+
+```
+docker build . --no-cache -t fairdata-download-server
+docker build . --no-cache -t fairdata-download-generator -f Dockerfile.generator
+```
+
+## Configuration
+
+### Local Development
+
+In order to run development server, some environment variables need to be
 specified. There variables can be set on command line or by including a file
 called `.env` at the root of the repository. Sample content of `.env` file
 below:
@@ -28,29 +41,45 @@ below:
 FLASK_APP=download
 FLASK_ENV=development
 FLASK_RUN_HOST=0.0.0.0
-FLASK_RUN_PORT=80
+FLASK_RUN_PORT=5000
 
-DOWNLOAD_SERVICE_SETTINGS=/etc/fairdata-download-service/custom-settings.cfg
+DOWNLOAD_SERVICE_SETTINGS=./settings.cfg.dev
 ```
 
-### Initialize application
-
-After installation, database has to be initialized if one is not already
-available. This can be done by running command with Flask:
+Sample content for a settings.cfg.dev file is:
 
 ```
-flask db init
+MQ_HOST = 'rabbitmq'
+
+DOWNLOAD_CACHE_DIR = '/app/data/download-cache'
+IDA_DATA_ROOT = '/app/data/ida-data'
+
+DATABASE_FILE = '/app/data/download.db'
+
+METAX_URL = 'https://metax.fairdata.fi/'
+METAX_USER = 'download'
+METAX_PASS = '<download-password>'
 ```
 
-Similarly, server uses message queue, which can be initialized by running:
+#### Docker Swarm
+
+Docker Swarm configurations can be created from existing configuration files.
+Use the following configuration names with the templates included in this
+repository.
 
 ```
-flask mq init
+docker config create download-settings <settings-file-path>
+docker config create download-e2e-settings <e2e-settings-file-path>
+docker config create download-nginx-config <nginx-config-file-path>
+docker config create fairdata-ssl-certificate <ssl-certificate-file-path>
+docker config create fairdata-ssl-certificate-key <ssl-certificate-key-file-path>
 ```
 
-### Run development server
+## Run applications
 
-Development server can be run with Flask:
+### Local Development
+
+Local development server can be started with Flask command:
 
 ```
 flask run
@@ -63,9 +92,21 @@ started with celery:
 celery -A download.celery worker
 ```
 
-### Run tests
+### Docker Swarm
 
-Tests can be run with coverage:
+Ensure that Docker Swarm is initialized, and finally deploy the stack with
+template provided in the repository:
+
+```
+docker swarm init
+docker stack deploy --with-registry-auth -c docker-compose.yml fairdata-download
+```
+
+## Run unit tests
+
+### Local Development
+
+Unit tests can be run locally with coverage:
 
 ```
 coverage run -m pytest
@@ -75,25 +116,4 @@ After running tests, coverage report can be displayed with:
 
 ```
 coverage report -m
-```
-
-## Development with Docker
-
-Repository includes Dockerfile and docker-compose files for development
-environment setups.
-
-First build local development docker image by running command below:
-```
-docker build . --no-cache -t fairdata-download-server:dev \
-    --build-arg DEVELOPER_UID=$(id -u) --build-arg DEVELOPER_GID=$(id -g)
-```
-
-In order to set development environment up, create `settings.cfg.dev` file and
-include development environment settings for the download service (see
-`download/config.py` for a list of configuration parameters).
-
-Next ensure that Docker Swarm is initialized, and finally deploy the stack
-```
-docker swarm init
-docker stack deploy -c docker-compose.yml download-dev
 ```

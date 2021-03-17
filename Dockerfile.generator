@@ -25,4 +25,6 @@ COPY . .
 ENV FLASK_APP=download
 ENV FLASK_ENV=development
 
+ENV DOWNLOAD_SERVICE_SETTINGS=/etc/fairdata-download-service/settings.cfg
+
 CMD ["celery", "-A", "download.celery", "worker"]

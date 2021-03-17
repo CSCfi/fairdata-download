@@ -42,7 +42,74 @@ def get_request():
     in the cache or are in the process of being generated.
     ---
     tags:
-      - generate tasks
+      - Package Generation
+    definitions:
+      - schema:
+          id: Dataset ID
+          summary: Generation Task
+          description: ID of the dataset whose file or package is to be downloaded
+          properties:
+            dataset:
+              type: string
+              description: ID of the dataset
+              example: "1"
+      - schema:
+          id: Generation Task
+          description: Task to generate a package to be downloaded
+          properties:
+            initiated:
+              type: datetime
+              description: Timestamp of when the task was created
+              example: "2021-02-25T08:00:04+00:00"
+            generated:
+              type: datetime
+              description: Timestamp of when the package was generated
+              example: "2021-02-25T08:08:04+00:00"
+            status:
+              type: string
+              description: Status of the task
+              example: "SUCCESS"
+              enum:
+                - PENDING
+                - STARTED
+                - SUCCESS
+                - FAILED
+      - schema:
+          id: Generation Task Scope
+          description: Task to generate a package to be downloaded
+          properties:
+            scope:
+              type: array
+              items:
+                type: string
+                example: "/project_x_FROZEN/Experiment_X/file_name_1"
+      - schema:
+          id: Package
+          description: Generated package available to be downloaded
+          properties:
+            package:
+              type: string
+              description: Filename of the package
+              example: "1_s8jhbj0j.zip"
+            checksum:
+              type: string
+              description: SHA256 checksum of the package file
+              example: "sha256:8739c76e681f900923b900c9df0ef75cf421d39cabb54650c4b9ad19b6a76d85"
+            size:
+              type: number
+              description: Size of the generated package in bytes
+              example: "1526474"
+      - schema:
+          id: Partial Generation Tasks
+          description: Generated package available to be downloaded
+          properties:
+            partial:
+              type: array
+              items:
+                allOf:
+                - $ref: "#/definitions/Generation Task"
+                - $ref: "#/definitions/Generation Task Scope"
+                - $ref: "#/definitions/Package"
     produces:
       - application/json
     parameters:
@@ -57,6 +124,12 @@ def get_request():
     responses:
       200:
         description: Information about the active package generation requests
+        schema:
+          allOf:
+            - $ref: "#/definitions/Dataset ID"
+            - $ref: "#/definitions/Generation Task"
+            - $ref: "#/definitions/Package"
+            - $ref: "#/definitions/Partial Generation Tasks"
       404:
         description: No active requests for given dataset were found
       500:
@@ -136,7 +209,15 @@ def post_request():
     Creates a new file generation request if no such already exists.
     ---
     tags:
-      - generate tasks
+      - Package Generation
+    definitions:
+      - schema:
+          id: Generation Task Created
+          description: Whether or not a package generation task was created
+          properties:
+            created:
+              type: string
+              example: "True"
     consumes:
       - application/json
     produces:
@@ -144,21 +225,21 @@ def post_request():
     parameters:
       - name: body
         in: body
-        description: ID of the dataset whose files are included in generated
-                     package
+        description: ID of the dataset whose package generation requests are
+                     returned
         schema:
-          type: object
-          properties:
-            dataset:
-              type: string
-              example: "1"
-            scope:
-              type: array
-              example: ["/project_x_FROZEN/Experiment_X/file_name_1"]
+          allOf:
+            - $ref: "#/definitions/Dataset ID"
+            - $ref: "#/definitions/Generation Task Scope"
         required: true
     responses:
       200:
         description: Information about the matching package generation request
+        schema:
+          allOf:
+            - $ref: "#/definitions/Dataset ID"
+            - $ref: "#/definitions/Generation Task Created"
+            - $ref: "#/definitions/Partial Generation Tasks"
       409:
         description: No files matching specified scope was found
       500:
@@ -271,7 +352,39 @@ def authorize():
     dataset package or file.
     ---
     tags:
-      - downloads
+      - File or Package Download
+    definitions:
+      - schema:
+          id: Package Authorize Request
+          description: Request autorization token for downloading a generated package
+          properties:
+            dataset:
+              type: string
+              description: ID of the dataset
+              example: "1"
+            package:
+              type: string
+              description: File name of the generated package available for download
+      - schema:
+          id: File Authorize Request
+          description: Request autorization token for downloading a dataset file
+          properties:
+            dataset:
+              type: string
+              description: ID of the dataset
+              example: "1"
+            file:
+              type: string
+              example: "/project_x_FROZEN/Experiment_X/file_name_1"
+              description: Dataset file paths as described in Metax
+      - schema:
+          id: Authorize Response
+          description: Response including authorization token for downloading a dataset file or package
+          properties:
+            token:
+              type: string
+              description: JWT encoded authorization token
+              example: "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE2MTQzMjY5ODAsImRhdGFzZXQiOiIxIiwiZmlsZSI6Ii9wcm9qZWN0X3hfRlJPWkVOL0V4cGVyaW1lbnRfWC9maWxlX25hbWVfMSIsInByb2plY3QiOiJwcm9qZWN0X3gifQ.niz50oRduP6pRtjrpLUJzIF48cr0-15IbxsFXjg7emE"
     consumes:
       - application/json
     produces:
@@ -282,23 +395,13 @@ def authorize():
         description: ID of the dataset whose package generation requests are
                      returned
         schema:
-          type: object
-          properties:
-            dataset:
-              type: string
-              example: "1"
-              required: true
-            package:
-              type: string
-              required: false
-            file:
-              type: string
-              example: "/project_x_FROZEN/Experiment_X/file_name_1"
-              required: false
+          $ref: "#/definitions/File Authorize Request"
         required: true
     responses:
       200:
         description: Token for downloading the requested file or package
+        schema:
+          $ref: "#/definitions/Authorize Response"
       400:
         description: No dataset file or active generated package matching
                      request was found
@@ -384,7 +487,7 @@ def download():
     PAS).
     ---
     tags:
-      - downloads
+      - File or Package Download
     consumes:
       - application/json
     produces:
@@ -476,7 +579,7 @@ def download():
 
         filename = path.join(
             current_app.config['IDA_DATA_ROOT'],
-            'PDO_%s' % project_identifier,
+            'PSO_%s' % project_identifier,
             'files',
             project_identifier,
             ) + filepath

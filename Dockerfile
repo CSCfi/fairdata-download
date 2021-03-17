@@ -21,9 +21,10 @@ RUN pip install -r requirements-dev.txt
 
 COPY . .
 
-# Configure application
+# Default environment variables
 ENV FLASK_APP=download
 ENV FLASK_RUN_HOST=0.0.0.0
+ENV FLASK_RUN_PORT=5000
 ENV FLASK_ENV=development
 
 EXPOSE 5000
