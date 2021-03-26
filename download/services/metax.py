@@ -130,7 +130,7 @@ def get_dataset_modified_from_metax(dataset_id):
     else:
         date_created = metax_response.get('date_created')
         if date_created:
-            return convert_timestamp_to_utc(datetime.fromisoformat(date_created))
+            return convert_timestamp_to_utc(date_created)
         else:
             current_app.logger.error(("'date_modified' field for dataset '%s' "
                                       "could not be found in Metax API response "
