@@ -126,6 +126,48 @@ def get_task_rows(dataset_id, initiated_after=''):
         (dataset_id, initiated_after)
     ).fetchall()
 
+def create_subscription_row(task_id, notify_url, subscription_data):
+    """Creates a new subscription for the specified package generation task
+    """
+    db_conn = get_db()
+    db_cursor = db_conn.cursor()
+
+    db_cursor.execute(
+        'INSERT INTO subscription (task_id, notify_url, subscription_data) VALUES (?, ?, ?)',
+        (task_id, notify_url, subscription_data)
+    )
+
+    db_conn.commit()
+
+    current_app.logger.info(
+        "Created a new subscription for package generation task '%s'"
+        % (task_id))
+
+def get_subscription_rows(task_id):
+    """Fetch subscription rows for the specified package generation task
+    """
+    db_conn = get_db()
+    db_cursor = db_conn.cursor()
+
+    return db_cursor.execute(
+        'SELECT notify_url, subscription_data FROM subscription WHERE task_id = ?',
+        (task_id,)
+    ).fetchall()
+
+def delete_subscription_rows(task_id):
+    """Delete subscription rows for the specified package generation task
+    """
+    db_conn = get_db()
+    db_cursor = db_conn.cursor()
+
+    db_cursor.execute('DELETE FROM subscription WHERE task_id = ?', (task_id,))
+
+    db_conn.commit()
+
+    current_app.logger.info(
+        "Deleted subscription rows for package generation task '%s'"
+        % (task_id))
+
 def create_download_record(token, filename):
     """Creates a new download record for a given package with specified
     authentication token.

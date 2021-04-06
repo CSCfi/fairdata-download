@@ -18,7 +18,7 @@ from ..services.cache import get_datasets_dir
 from ..services.db import get_download_record, get_request_scopes, \
                           get_task_for_package, get_task_rows, \
                           create_download_record, create_request_scope, \
-                          create_task_rows, get_package_row, \
+                          create_subscription_row, create_task_rows, get_package_row, \
                           get_generate_scope_filepaths, update_download_record
 from ..services import metax
 from ..services.metax import get_dataset_modified_from_metax, \
@@ -28,7 +28,7 @@ from ..services.metax import get_dataset_modified_from_metax, \
                              MissingFieldsInResponse, NoMatchingFilesFound
 from ..utils import convert_utc_timestamp, format_datetime
 from ..model.requests import AuthorizePostData, DownloadQuerySchema, \
-                             RequestsPostData, RequestsQuerySchema
+                             RequestsPostData, RequestsQuerySchema, SubscribePostData
 
 download_api = Blueprint('download-api', __name__)
 
@@ -343,6 +343,120 @@ def post_request():
         response['partial'] = [partial_task]
 
     return jsonify(response)
+
+@download_api.route('/subscribe', methods=['POST'])
+def post_subscribe():
+    """Internally available end point for subscribing to a package generation task.
+
+    Creates a new file subscription record for an ongoing package generation task.
+    ---
+    tags:
+      - Package Generation
+    definitions:
+      - schema:
+          id: Subscription Data
+          description: Optional base64 encoded data field to be echoed back once the notification is sent
+          properties:
+            subscriptionData:
+              type: string
+              example: "637nNUwp+oiRkQgNfPit"
+      - schema:
+          id: Notify URL
+          description: URL where a package generation notification will be posted.
+          properties:
+            notifyURL:
+              type: string
+              example: "https://example.com/notify"
+    consumes:
+      - application/json
+    produces:
+      - application/json
+    parameters:
+      - name: body
+        in: body
+        description: Information about the task to be subscribed to and some subscription data
+        schema:
+          allOf:
+            - $ref: "#/definitions/Dataset ID"
+            - $ref: "#/definitions/Generation Task Scope"
+            - $ref: "#/definitions/Subscription Data"
+            - $ref: "#/definitions/Notify URL"
+        required: true
+    responses:
+      201:
+        description: Information about the subscription
+        schema:
+          allOf:
+            - $ref: "#/definitions/Dataset ID"
+            - $ref: "#/definitions/Generation Task Scope"
+            - $ref: "#/definitions/Subscription Data"
+            - $ref: "#/definitions/Notify URL"
+      400:
+        description: Invalid request was received
+      409:
+        description: No matching ongoing package generation task was found
+      500:
+        description: Unable to connect to Metax API or an unexpected status
+                     code received
+    """
+    # Validate request
+    try:
+        request_data = SubscribePostData().load(request.get_json())
+    except ValidationError as err:
+        abort(400, str(err.messages))
+
+    dataset = request_data.get('dataset')
+    request_scope = request_data.get('scope', [])
+    subscription_data = request_data.get('subscription_data', '')
+    notify_url = request_data.get('notify_url')
+
+    # Check dataset metadata in Metax API
+    # TODO: replace with a service function to avoid code repetition
+    try:
+        dataset_modified = get_dataset_modified_from_metax(dataset)
+    except DatasetNotFound as err:
+        abort(404, err)
+    except ConnectionError:
+        abort(500)
+    except MissingFieldsInResponse:
+        abort(500)
+    except UnexpectedStatusCode:
+        abort(500)
+
+    try:
+        generate_scope, project_identifier, is_partial = metax.get_matching_dataset_files_from_metax(dataset, request_scope)
+    except ConnectionError:
+        abort(500)
+    except UnexpectedStatusCode:
+        abort(500)
+    except NoMatchingFilesFound as err:
+        abort(409, err)
+
+    # Check existing tasks in database
+    created = False
+
+    task_rows = get_task_rows(dataset, dataset_modified)
+
+    task_row = None
+    for row in task_rows:
+        if get_generate_scope_filepaths(row['task_id']) == generate_scope:
+            task_row = row
+            break
+
+    if not task_row:
+        abort(404, 'No matching package generation tasks were found.')
+    elif task_row['status'] not in ['PENDING', 'STARTED']:
+        abort(409, "Status of the matching active package generation task is '%s'." % task_row['status'])
+
+    # Create subscription record
+    create_subscription_row(task_row['task_id'], notify_url, subscription_data)
+
+    return jsonify({
+        'dataset': dataset,
+        'scope': request_scope,
+        'subscriptionData': subscription_data,
+        'notifyURL': notify_url
+    }), 201
 
 @download_api.route('/authorize', methods=['POST'])
 def authorize():

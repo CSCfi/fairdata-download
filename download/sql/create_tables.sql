@@ -53,3 +53,10 @@ CREATE TABLE IF NOT EXISTS generate_request_scope (
   request_id INTEGER NOT NULL,
   prefix VARCHAR(512) NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS subscription (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  task_id VARCHAR(155),
+  notify_url VARCHAR,
+  subscription_data BLOB
+);
