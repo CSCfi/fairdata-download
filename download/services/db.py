@@ -52,7 +52,7 @@ def close_db(e=None):
             (current_app.config['DATABASE_FILE'], ))
 
 def init_db():
-    """Initializes database by (re-)creating tables.
+    """Initializes database by creating tables that don't exist.
 
     """
     db_conn = get_db()
@@ -61,7 +61,7 @@ def init_db():
         db_conn.executescript(migration_file.read().decode('utf8'))
 
     current_app.logger.debug(
-        'Initialized new database on %s' %
+        'Initialized database on %s' %
         (current_app.config['DATABASE_FILE'], ))
 
 def get_download_record(token):
@@ -310,11 +310,9 @@ db_cli = AppGroup('db', help='Run operations against database.')
 
 @db_cli.command('init')
 def init_db_command():
-    """Drop any existing tables and create new ones."""
-    if (click.confirm('All of the existing records will be deleted. Do you '
-                      'want to continue?')):
-        init_db()
-        click.echo('Initialized the database.')
+    """Ensure all of the required database tables exist."""
+    init_db()
+    click.echo('Initialized the database.')
 
 def init_app(app):
     """Hooks database extension to given Flask application.
