@@ -14,6 +14,7 @@ from jwt import decode, encode, ExpiredSignatureError
 from jwt.exceptions import DecodeError
 from requests.exceptions import ConnectionError
 
+from ..services import task_service
 from ..services.cache import get_datasets_dir
 from ..services.db import get_download_record, get_request_scopes, \
                           get_task_for_package, get_task_rows, \
@@ -136,15 +137,17 @@ def get_request():
         description: Unable to connect to Metax API or an unexpected status
                      code received
     """
+    # Validate request
     try:
         query = RequestsQuerySchema().load(request.args)
     except ValidationError as err:
         abort(400, str(err.messages))
 
     dataset = query.get('dataset')
-    # Check dataset metadata in Metax API
+
+    # Check active package generation tasks
     try:
-        dataset_modified = get_dataset_modified_from_metax(dataset)
+        task_rows = task_service.get_active_tasks(dataset)
     except DatasetNotFound as err:
         abort(404, err)
     except ConnectionError:
@@ -153,13 +156,8 @@ def get_request():
         abort(500)
     except UnexpectedStatusCode:
         abort(500)
-
-    # Check task rows from database
-    task_rows = get_task_rows(dataset, dataset_modified)
-
-    if len(task_rows) == 0:
-        abort(404, ("No active file generation tasks was found for dataset "
-                    "'%s'" % dataset))
+    except task_service.NoActiveTasksFound as err:
+        abort(404, err)
 
     # Formulate response
     response = {}
@@ -256,7 +254,7 @@ def post_request():
 
     # Check dataset metadata in Metax API
     try:
-        dataset_modified = get_dataset_modified_from_metax(dataset)
+        task_row, project_identifier, is_partial, generate_scope = task_service.get_active_task(dataset, request_scope)
     except DatasetNotFound as err:
         abort(404, err)
     except ConnectionError:
@@ -265,26 +263,10 @@ def post_request():
         abort(500)
     except UnexpectedStatusCode:
         abort(500)
-
-    try:
-        generate_scope, project_identifier, is_partial = metax.get_matching_dataset_files_from_metax(dataset, request_scope)
-    except ConnectionError:
-        abort(500)
-    except UnexpectedStatusCode:
-        abort(500)
     except NoMatchingFilesFound as err:
         abort(409, err)
 
-    # Check existing tasks in database
     created = False
-
-    task_rows = get_task_rows(dataset, dataset_modified)
-
-    task_row = None
-    for row in task_rows:
-        if get_generate_scope_filepaths(row['task_id']) == generate_scope:
-            task_row = row
-            break
 
     # Create new task if no such already exists
     if not task_row:
@@ -410,10 +392,9 @@ def post_subscribe():
     subscription_data = request_data.get('subscription_data', '')
     notify_url = request_data.get('notify_url')
 
-    # Check dataset metadata in Metax API
-    # TODO: replace with a service function to avoid code repetition
+    # Get corresponding package generation task
     try:
-        dataset_modified = get_dataset_modified_from_metax(dataset)
+        task_row, project_identifier, is_partial, generate_scope = task_service.get_active_task(dataset, request_scope)
     except DatasetNotFound as err:
         abort(404, err)
     except ConnectionError:
@@ -422,33 +403,14 @@ def post_subscribe():
         abort(500)
     except UnexpectedStatusCode:
         abort(500)
-
-    try:
-        generate_scope, project_identifier, is_partial = metax.get_matching_dataset_files_from_metax(dataset, request_scope)
-    except ConnectionError:
-        abort(500)
-    except UnexpectedStatusCode:
-        abort(500)
     except NoMatchingFilesFound as err:
         abort(409, err)
-
-    # Check existing tasks in database
-    created = False
-
-    task_rows = get_task_rows(dataset, dataset_modified)
-
-    task_row = None
-    for row in task_rows:
-        if get_generate_scope_filepaths(row['task_id']) == generate_scope:
-            task_row = row
-            break
 
     if not task_row:
         abort(404, 'No matching package generation tasks were found.')
     elif task_row['status'] not in ['PENDING', 'STARTED']:
         abort(409, "Status of the matching active package generation task is '%s'." % task_row['status'])
 
-    # Create subscription record
     create_subscription_row(task_row['task_id'], notify_url, subscription_data)
 
     return jsonify({
@@ -551,14 +513,8 @@ def authorize():
             'project': project_identifier
         }
     else:
-        # Check package database record
-        task_row = get_task_for_package(dataset, package) or abort(404)
-
-        initiated = convert_utc_timestamp(task_row['initiated'])
-
-        # Check dataset metadata in Metax API
         try:
-            dataset_modified = get_dataset_modified_from_metax(dataset)
+            task_service.check_if_package_can_be_downloaded(dataset, package)
         except DatasetNotFound as err:
             abort(404, err)
         except ConnectionError:
@@ -567,13 +523,10 @@ def authorize():
             abort(500)
         except UnexpectedStatusCode:
             abort(500)
-
-        if initiated < dataset_modified:
-            current_app.logger.error(
-                "Dataset %s has been modified since generation task was "
-                "initialized"
-                % dataset)
-            abort(409)
+        except task_service.NoDatabaseRecordForPackageFound as err:
+            abort(404, err)
+        except task_service.PackageOutdated as err:
+            abort(409, err)
 
         # Create JWT
         jwt_payload = {
@@ -698,20 +651,8 @@ def download():
             project_identifier,
             ) + filepath
     else:
-        # Check if package can be found in database
-        task_row = get_task_for_package(dataset, package)
-
-        if task_row is None:
-            current_app.logger.error("Could not find database record for "
-                                     "package '%s' with valid download token"
-                                     % package)
-            abort(404)
-
-        initiated = convert_utc_timestamp(task_row['initiated'])
-
-        # Check dataset metadata in Metax API
         try:
-            dataset_modified = get_dataset_modified_from_metax(dataset)
+            task_service.check_if_package_can_be_downloaded(dataset, package)
         except DatasetNotFound as err:
             abort(404, err)
         except ConnectionError:
@@ -720,12 +661,10 @@ def download():
             abort(500)
         except UnexpectedStatusCode:
             abort(500)
-
-        if initiated < dataset_modified:
-            current_app.logger.error("Dataset %s has been modified since "
-                                     "generation task was initialized"
-                                     % dataset)
-            abort(409)
+        except task_service.NoDatabaseRecordForPackageFound as err:
+            abort(404, err)
+        except task_service.PackageOutdated as err:
+            abort(409, err)
 
         filename = path.join(get_datasets_dir(), package)
 
