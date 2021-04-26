@@ -52,7 +52,7 @@ def close_db(e=None):
             (current_app.config['DATABASE_FILE'], ))
 
 def init_db():
-    """Initializes database by (re-)creating tables.
+    """Initializes database by creating tables that don't exist.
 
     """
     db_conn = get_db()
@@ -61,7 +61,7 @@ def init_db():
         db_conn.executescript(migration_file.read().decode('utf8'))
 
     current_app.logger.debug(
-        'Initialized new database on %s' %
+        'Initialized database on %s' %
         (current_app.config['DATABASE_FILE'], ))
 
 def get_download_record(token):
@@ -125,6 +125,48 @@ def get_task_rows(dataset_id, initiated_after=''):
         'OR (t.status is not "SUCCESS" and t.status is not "FAILURE") ',
         (dataset_id, initiated_after)
     ).fetchall()
+
+def create_subscription_row(task_id, notify_url, subscription_data):
+    """Creates a new subscription for the specified package generation task
+    """
+    db_conn = get_db()
+    db_cursor = db_conn.cursor()
+
+    db_cursor.execute(
+        'INSERT INTO subscription (task_id, notify_url, subscription_data) VALUES (?, ?, ?)',
+        (task_id, notify_url, subscription_data)
+    )
+
+    db_conn.commit()
+
+    current_app.logger.info(
+        "Created a new subscription for package generation task '%s'"
+        % (task_id))
+
+def get_subscription_rows(task_id):
+    """Fetch subscription rows for the specified package generation task
+    """
+    db_conn = get_db()
+    db_cursor = db_conn.cursor()
+
+    return db_cursor.execute(
+        'SELECT notify_url, subscription_data FROM subscription WHERE task_id = ?',
+        (task_id,)
+    ).fetchall()
+
+def delete_subscription_rows(task_id):
+    """Delete subscription rows for the specified package generation task
+    """
+    db_conn = get_db()
+    db_cursor = db_conn.cursor()
+
+    db_cursor.execute('DELETE FROM subscription WHERE task_id = ?', (task_id,))
+
+    db_conn.commit()
+
+    current_app.logger.info(
+        "Deleted subscription rows for package generation task '%s'"
+        % (task_id))
 
 def create_download_record(token, filename):
     """Creates a new download record for a given package with specified
@@ -310,11 +352,9 @@ db_cli = AppGroup('db', help='Run operations against database.')
 
 @db_cli.command('init')
 def init_db_command():
-    """Drop any existing tables and create new ones."""
-    if (click.confirm('All of the existing records will be deleted. Do you '
-                      'want to continue?')):
-        init_db()
-        click.echo('Initialized the database.')
+    """Ensure all of the required database tables exist."""
+    init_db()
+    click.echo('Initialized the database.')
 
 def init_app(app):
     """Hooks database extension to given Flask application.

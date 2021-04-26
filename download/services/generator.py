@@ -6,6 +6,7 @@
 """
 import hashlib
 import os
+import requests
 import tempfile
 from zipfile import ZipFile, ZIP_DEFLATED
 
@@ -14,7 +15,7 @@ from flask import current_app
 from flask.cli import AppGroup
 
 from .cache import get_datasets_dir
-from .db import get_db
+from .db import get_db, get_subscription_rows, delete_subscription_rows
 
 def generate(dataset, project_identifier, scope, requestor_id):
     """Generates downloadable compressed file next dataset in request queue.
@@ -78,6 +79,16 @@ def generate(dataset, project_identifier, scope, requestor_id):
         (os.path.basename(output_filename), output_checksum, output_filesize, requestor_id)
     )
     db_conn.commit()
+
+    # Send subscription notifications and delete subscription rows
+    for subscription_row in get_subscription_rows(requestor_id):
+        current_app.logger.debug("Posting subscription notification to '%s'" % subscription_row['notify_url'])
+        requests.post(
+            subscription_row['notify_url'],
+            json={ 'subscriptionData': subscription_row['subscription_data'] }
+        )
+
+    delete_subscription_rows(requestor_id)
 
 generator_cli = AppGroup('generator', help='Run download file generator operations.')
 

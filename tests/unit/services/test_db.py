@@ -13,18 +13,9 @@ def test_close(flask_app):
 
     assert 'closed' in str(programming_error.value)
 
-def test_init_command_confirm(runner, mock_init_db, recorder):
-    result = runner.invoke(args=['db', 'init'], input='y\n')
+def test_init_command(runner, mock_init_db, recorder):
+    result = runner.invoke(args=['db', 'init'])
 
     assert not result.exception
-    assert 'Do you want to continue?' in result.output
     assert 'Initialized' in result.output
     assert recorder.called
-
-def test_init_command_unconfirm(runner, mock_init_db, recorder):
-    result = runner.invoke(args=['db', 'init'], input='N\n')
-
-    assert not result.exception
-    assert 'Do you want to continue?' in result.output
-    assert 'Initialized' not in result.output
-    assert not recorder.called

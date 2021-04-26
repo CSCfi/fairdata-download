@@ -7,14 +7,14 @@
     variable.
 """
 # Volume mounts
-DOWNLOAD_CACHE_DIR = 'download-cache'
-IDA_DATA_ROOT = 'ida-data'
+DOWNLOAD_CACHE_DIR = '/mnt/download-service-cache'
+IDA_DATA_ROOT = '/mnt/download-ida-storage'
 
 # Database
-DATABASE_FILE = 'download.db'
+DATABASE_FILE = '%s/download.db' % DOWNLOAD_CACHE_DIR
 
 # Message queue
-MQ_HOST = 'localhost'
+MQ_HOST = 'download-rabbitmq'
 MQ_VHOST = 'download'
 MQ_USER = 'download'
 MQ_PASS = 'download'
@@ -25,6 +25,6 @@ JWT_ALGORITHM = 'HS256'
 JWT_TTL = 60
 
 # Metax API
-METAX_URL = 'http://metax.local/'
+METAX_URL = 'https://metax.fd-dev.csc.fi/'
 METAX_USER = 'download'
 METAX_PASS = 'download'

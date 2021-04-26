@@ -7,6 +7,12 @@ class RequestsPostData(Schema):
     dataset = fields.Str(required=True)
     scope = fields.List(fields.Str())
 
+class SubscribePostData(Schema):
+    dataset = fields.Str(required=True)
+    scope = fields.List(fields.Str())
+    subscription_data = fields.Str(data_key='subscriptionData')
+    notify_url = fields.Str(data_key='notifyURL', required=True)
+
 class AuthorizePostData(Schema):
     dataset = fields.Str(required=True)
     package = fields.Str()

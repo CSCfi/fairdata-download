@@ -7,6 +7,12 @@ services:
       - 5000:5000
     volumes:
       - .:/app
+      - type: volume
+        source: download-ida-storage
+        target: /mnt/download-ida-storage
+      - type: volume
+        source: download-service-cache
+        target: /mnt/download-service-cache
     environment:
       DOWNLOAD_SERVICE_SETTINGS: '/etc/fairdata-download-service/settings.cfg'
       DOWNLOAD_SERVICE_TEST_DATA: '/etc/fairdata-download-service/e2e-test-settings.cfg'
@@ -20,14 +26,21 @@ services:
     image: fairdata-docker.artifactory.ci.csc.fi/fairdata-download-generator
     volumes:
       - .:/app
+      - type: volume
+        source: download-ida-storage
+        target: /mnt/download-ida-storage
+      - type: volume
+        source: download-service-cache
+        target: /mnt/download-service-cache
     environment:
       DOWNLOAD_SERVICE_SETTINGS: '/etc/fairdata-download-service/settings.cfg'
     configs:
       - source: download-settings
         target: '/etc/fairdata-download-service/settings.cfg'
 
-  download-mq:
+  download-rabbitmq:
     image: fairdata-docker.artifactory.ci.csc.fi/rabbitmq:management
+    hostname: download-rabbitmq
     environment:
       RABBITMQ_DEFAULT_USER: download
       RABBITMQ_DEFAULT_PASS: download
@@ -35,17 +48,19 @@ services:
     ports:
       - 15672:15672
 
-  download-proxy:
-    image: fairdata-docker.artifactory.ci.csc.fi/nginx
+  fairdata-nginx:
+    image: nginx
     configs:
-      - source: download-nginx-config
+      - source: fairdata-nginx-config
         target: '/etc/nginx/nginx.conf'
       - source: fairdata-ssl-certificate
         target: '/etc/pki/tls/certs/ssl.crt.pem'
       - source: fairdata-ssl-certificate-key
         target: '/etc/pki/tls/private/ssl.key.pem'
+      - source: download-nginx-config
+        target: '/etc/nginx/sites-enabled/download'
     ports:
-      - 4431:443
+      - 443:443
 
 configs:
   download-settings:
@@ -54,7 +69,16 @@ configs:
     external: True
   download-nginx-config:
     external: True
+
+  fairdata-nginx-config:
+    external: True
   fairdata-ssl-certificate:
     external: True
   fairdata-ssl-certificate-key:
+    external: True
+
+volumes:
+  download-ida-storage:
+    external: True
+  download-service-cache:
     external: True

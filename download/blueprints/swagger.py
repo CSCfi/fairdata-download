@@ -72,7 +72,7 @@ download_api_swagger_ui = get_swaggerui_blueprint(
 @download_api_swagger.route('/swagger.json')
 def get_swagger():
     swag = swagger(current_app)
-    swag['info']['version'] = '1.0.1'
+    swag['info']['version'] = '1.1.0'
     swag['info']['title'] = 'Fairdata Download API'
     swag['info']['description'] = swagger_description
     swag['info']['contact'] = {

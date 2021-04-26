@@ -294,6 +294,63 @@ class TestPostRequest:
         assert response.status_code == 409
         assert 'No matching files' in str(response.data)
 
+class TestPostSubscribe:
+    endpoint = '/subscribe'
+
+    def test_valid_pending_task(self, client, mock_metax, pending_task):
+        response = client.post(self.endpoint, json={
+            'dataset': pending_task['dataset_id'],
+            'subscriptionData': 'aslrnlbrinrdlr',
+            'notifyURL': 'https://example.com/notify'
+        })
+        assert response.status_code == 201
+
+    def test_valid_pending_partial_task(self, client, mock_metax, pending_partial_task):
+        response = client.post(self.endpoint, json={
+            'dataset': pending_partial_task['dataset_id'],
+            'scope': ['/test1/file1.txt'],
+            'subscriptionData': 'aslrnlbrinrdlr',
+            'notifyURL': 'https://example.com/notify'
+        })
+        assert response.status_code == 201
+
+    def test_valid_request_no_subscription_data(self, client, mock_metax, pending_task):
+        response = client.post(self.endpoint, json={
+            'dataset': pending_task['dataset_id'],
+            'subscriptionData': 'aslrnlbrinrdlr',
+            'notifyURL': 'https://example.com/notify'
+        })
+        assert response.status_code == 201
+
+    def test_invalid_request_missing_notify_url(self, client, mock_metax, pending_task):
+        response = client.post(self.endpoint, json={
+            'dataset': pending_task['dataset_id'],
+            'subscriptionData': 'aslrnlbrinrdlr'
+        })
+        assert response.status_code == 400
+
+    def test_not_found_task(self,
+                            client,
+                            mock_metax,
+                            not_found_task):
+        response = client.post(self.endpoint, json={
+            'dataset': not_found_task['dataset_id'],
+            'subscriptionData': 'aslrnlbrinrdlr',
+            'notifyURL': 'https://example.com/notify'
+        })
+        assert response.status_code == 404
+
+    def test_successful_task(self,
+                             client,
+                             mock_metax,
+                             success_task):
+        response = client.post(self.endpoint, json={
+            'dataset': success_task['dataset_id'],
+            'subscriptionData': 'aslrnlbrinrdlr',
+            'notifyURL': 'https://example.com/notify'
+        })
+        assert response.status_code == 409
+
 @pytest.mark.usefixtures()
 class TestPostAuthorize:
     endpoint = '/authorize'
