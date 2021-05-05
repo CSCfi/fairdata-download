@@ -39,7 +39,7 @@ def get_health():
               type: string
               example: "2020-10-30T11:14:20+00:00"
     """
-    from ..celery import celery_app
+    from ..tasks import celery_app
 
     errors = []
     try:
