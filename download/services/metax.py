@@ -146,11 +146,14 @@ def get_matching_project_identifier_from_metax(dataset_id, filepath):
     except UnexpectedStatusCode:
         raise
 
-    matching_file = list(filter(
+    matching_files = list(filter(
         lambda metax_file: metax_file['file_path'] == filepath,
         metax_files_response))
 
-    return matching_file[-1].get('project_identifier') if len(matching_file) > 0 else None
+    if len(matching_files) == 0:
+        raise NoMatchingFilesFound(dataset_id)
+
+    return matching_files[-1].get('project_identifier')
 
 def get_matching_dataset_files_from_metax(dataset_id, scope):
     try:

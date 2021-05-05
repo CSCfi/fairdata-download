@@ -401,7 +401,7 @@ class TestPostAuthorize:
             'file': '/test1/non-matching.txt'
         })
         assert recorder.called == True
-        assert response.status_code == 500
+        assert response.status_code == 404
 
     def test_empty_request_results_in_validation_error(self,
                                                        client,
