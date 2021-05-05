@@ -2,8 +2,8 @@ import json
 import pytest
 
 from datetime import datetime, timedelta
-from jwt import decode, encode, ExpiredSignatureError
-from jwt.exceptions import DecodeError
+from jwt import decode, encode, ExpiredSignatureError, DecodeError
+# from jwt.exceptions import DecodeError
 from requests.exceptions import ConnectionError
 
 from download.services.metax import UnexpectedStatusCode
