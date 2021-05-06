@@ -1,6 +1,7 @@
-import os
-import pytest
 import configparser
+import os
+
+import pytest
 
 
 @pytest.fixture

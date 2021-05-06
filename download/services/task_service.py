@@ -8,7 +8,6 @@ from requests.exceptions import ConnectionError
 
 from .. import utils
 from . import db, metax
-
 from .metax import (
     DatasetNotFound,
     MissingFieldsInResponse,

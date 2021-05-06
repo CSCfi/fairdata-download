@@ -6,7 +6,6 @@
 """
 import os
 
-from click import option
 from flask import current_app
 from flask.cli import AppGroup
 

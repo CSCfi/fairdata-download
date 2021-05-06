@@ -1,21 +1,15 @@
-import json
 import os
 import shutil
-import sqlite3
 import tempfile
 
 import pytest
-
-from pika.spec import BasicProperties
 from requests.exceptions import ConnectionError
+from testutils.download import create_dataset
+from testutils.metax import MetaxDatasetFilesResponse, MetaxDatasetResponse
+from testutils.misc import CeleryTask, Recorder
 
 from download import create_flask_app
-from download.services import mq
-from download.services.db import init_db, close_db, get_db
-
-from testutils.download import create_dataset
-from testutils.misc import CeleryTask, Recorder
-from testutils.metax import MetaxDatasetResponse, MetaxDatasetFilesResponse
+from download.services.db import init_db
 
 
 @pytest.fixture

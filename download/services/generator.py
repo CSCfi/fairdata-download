@@ -6,16 +6,16 @@
 """
 import hashlib
 import os
-import requests
 import tempfile
-from zipfile import ZipFile, ZIP_DEFLATED
+from zipfile import ZIP_DEFLATED, ZipFile
 
+import requests
 from click import option
 from flask import current_app
 from flask.cli import AppGroup
 
 from .cache import get_datasets_dir
-from .db import get_db, get_subscription_rows, delete_subscription_rows
+from .db import delete_subscription_rows, get_db, get_subscription_rows
 
 
 def generate(dataset, project_identifier, scope, requestor_id):
