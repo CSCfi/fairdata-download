@@ -14,7 +14,7 @@ IDA_DATA_ROOT = '/mnt/download-ida-storage'
 DATABASE_FILE = '%s/download.db' % DOWNLOAD_CACHE_DIR
 
 # Message queue
-MQ_HOST = 'download-rabbitmq'
+MQ_HOST = '0.0.0.0'
 MQ_VHOST = 'download'
 MQ_USER = 'download'
 MQ_PASS = 'download'
