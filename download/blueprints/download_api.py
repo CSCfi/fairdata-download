@@ -10,8 +10,8 @@ from os import path
 
 from flask import Blueprint, Response, abort, current_app, jsonify, request, \
                   stream_with_context
-from jwt import decode, encode, ExpiredSignatureError
-from jwt.exceptions import DecodeError
+from jwt import decode, encode, ExpiredSignatureError, DecodeError
+# from jwt.exceptions import DecodeError
 from requests.exceptions import ConnectionError
 
 from ..services import task_service
@@ -270,7 +270,7 @@ def post_request():
 
     # Create new task if no such already exists
     if not task_row:
-        from ..celery import generate_task
+        from ..tasks import generate_task
         task = generate_task.delay(
             dataset,
             project_identifier,
