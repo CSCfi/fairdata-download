@@ -1,10 +1,13 @@
 import json
 
+
 class Recorder(object):
     called = False
 
+
 class CeleryTask(object):
     id = 1
+
 
 class ResponseMock(object):
     def __init__(self, *args):
