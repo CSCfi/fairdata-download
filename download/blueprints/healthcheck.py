@@ -12,9 +12,10 @@ from celery.app.control import Inspect
 from ..services import mq
 from ..services.mq import UnableToConnectToMQ, get_mq
 
-healthcheck = Blueprint('healthcheck', __name__)
+healthcheck = Blueprint("healthcheck", __name__)
 
-@healthcheck.route('/', methods=['GET'])
+
+@healthcheck.route("/", methods=["GET"])
 def get_health():
     """
     Internally available end point for health monitoring.
@@ -50,19 +51,22 @@ def get_health():
     try:
         generator_status = Inspect(app=celery_app).ping()
         if generator_status == None:
-            errors.append('Could not ping the generator')
+            errors.append("Could not ping the generator")
     except ConnectionResetError:
-        errors.append('Connection to generator was reset')
+        errors.append("Connection to generator was reset")
 
     if len(errors) > 0:
         abort(500, errors)
 
-    return jsonify({
-      'server_time': datetime.utcnow().astimezone().isoformat(timespec='seconds'),
-      'server_status': 'OK',
-      'message_queue_status': 'OK',
-      'generator_status': generator_status
-    })
+    return jsonify(
+        {
+            "server_time": datetime.utcnow().astimezone().isoformat(timespec="seconds"),
+            "server_status": "OK",
+            "message_queue_status": "OK",
+            "generator_status": generator_status,
+        }
+    )
+
 
 @healthcheck.errorhandler(500)
 def internal_server_error(error):

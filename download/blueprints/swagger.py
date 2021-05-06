@@ -63,21 +63,21 @@ swagger_description = """
 </div>
 """
 
-download_api_swagger = Blueprint('download-swagger', __name__)
+download_api_swagger = Blueprint("download-swagger", __name__)
 download_api_swagger_ui = get_swaggerui_blueprint(
-    '',
-    '/swagger.json',
-    config={'app_name': 'Fairdata Download Service'})
+    "", "/swagger.json", config={"app_name": "Fairdata Download Service"}
+)
 
-@download_api_swagger.route('/swagger.json')
+
+@download_api_swagger.route("/swagger.json")
 def get_swagger():
     swag = swagger(current_app)
-    swag['info']['version'] = '1.1.0'
-    swag['info']['title'] = 'Fairdata Download API'
-    swag['info']['description'] = swagger_description
-    swag['info']['contact'] = {
-        'name': 'Fairdata',
-        'url': 'https://fairdata.fi',
-        'email': 'servicedesk@csc.fi'
+    swag["info"]["version"] = "1.1.0"
+    swag["info"]["title"] = "Fairdata Download API"
+    swag["info"]["description"] = swagger_description
+    swag["info"]["contact"] = {
+        "name": "Fairdata",
+        "url": "https://fairdata.fi",
+        "email": "servicedesk@csc.fi",
     }
     return jsonify(swag)

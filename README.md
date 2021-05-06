@@ -21,3 +21,9 @@ See [deployment instructions](/docs/deployment.md).
 ## Testing
 
 See [testing instructions](/docs/testing.md).
+
+## Git configuration
+
+Configure git blame to ignore black formatter commits
+
+`git config blame.ignoreRevsFile .git-blame-ignore-revs`

@@ -7,13 +7,15 @@
 from datetime import datetime
 import pytz
 
+
 def convert_utc_timestamp(utc_timestamp):
     """Converts a string from UTC naive form to UTC localtime.
 
     :param utc_timestamp: UTC naive timestamp string to be formatted in local
                           timezone
     """
-    return datetime.fromisoformat(utc_timestamp + '+00:00').astimezone()
+    return datetime.fromisoformat(utc_timestamp + "+00:00").astimezone()
+
 
 def convert_timestamp_to_utc(timestamp):
     """Converts a string from UTC naive form to UTC localtime.
@@ -22,15 +24,17 @@ def convert_timestamp_to_utc(timestamp):
     """
     return datetime.fromisoformat(timestamp).astimezone(pytz.utc)
 
+
 def format_datetime(utc_timestamp):
     """Formats given timestamp to the form returned by the Download Service.
 
     :param iso_datetime: UTC naive timestamp string to be formatted in local
                          timezone
     """
-    return convert_utc_timestamp(utc_timestamp).isoformat(timespec='seconds')
+    return convert_utc_timestamp(utc_timestamp).isoformat(timespec="seconds")
 
-def startswithpath(prefix, filepath, sep='/'):
+
+def startswithpath(prefix, filepath, sep="/"):
     """Checks whether files in a filepath string match to files in a given path
     prefix.
 
