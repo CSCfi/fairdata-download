@@ -7,8 +7,6 @@
     Currently API v1 is used.
 """
 import requests
-from datetime import datetime
-
 from flask import current_app
 from requests.exceptions import ConnectionError
 

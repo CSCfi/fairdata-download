@@ -5,7 +5,6 @@
     Module for views used by Fairdata Download Service.
 """
 from datetime import datetime, timedelta
-from marshmallow import ValidationError
 from os import path
 
 from flask import (
@@ -17,37 +16,12 @@ from flask import (
     request,
     stream_with_context,
 )
-from jwt import decode, encode, ExpiredSignatureError, DecodeError
+from jwt import DecodeError, ExpiredSignatureError, decode, encode
+from marshmallow import ValidationError
 
 # from jwt.exceptions import DecodeError
 from requests.exceptions import ConnectionError
 
-from ..services import task_service
-from ..services.cache import get_datasets_dir
-from ..services.db import (
-    get_download_record,
-    get_request_scopes,
-    get_task_for_package,
-    get_task_rows,
-    create_download_record,
-    create_request_scope,
-    create_subscription_row,
-    create_task_rows,
-    get_package_row,
-    get_generate_scope_filepaths,
-    update_download_record,
-)
-from ..services import metax
-from ..services.metax import (
-    get_dataset_modified_from_metax,
-    get_matching_project_identifier_from_metax,
-    get_matching_dataset_files_from_metax,
-    DatasetNotFound,
-    UnexpectedStatusCode,
-    MissingFieldsInResponse,
-    NoMatchingFilesFound,
-)
-from ..utils import convert_utc_timestamp, format_datetime
 from ..model.requests import (
     AuthorizePostData,
     DownloadQuerySchema,
@@ -55,6 +29,26 @@ from ..model.requests import (
     RequestsQuerySchema,
     SubscribePostData,
 )
+from ..services import task_service
+from ..services.cache import get_datasets_dir
+from ..services.db import (
+    create_download_record,
+    create_request_scope,
+    create_subscription_row,
+    create_task_rows,
+    get_download_record,
+    get_package_row,
+    get_request_scopes,
+    update_download_record,
+)
+from ..services.metax import (
+    DatasetNotFound,
+    MissingFieldsInResponse,
+    NoMatchingFilesFound,
+    UnexpectedStatusCode,
+    get_matching_project_identifier_from_metax,
+)
+from ..utils import format_datetime
 
 download_api = Blueprint("download-api", __name__)
 

@@ -4,8 +4,8 @@
 
     Database module for Fairdata Download Service.
 """
-from os import path
 import sqlite3
+from os import path
 
 import click
 from flask import current_app, g

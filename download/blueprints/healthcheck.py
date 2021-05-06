@@ -4,13 +4,13 @@
 
     Module for health monitoring end points used by Fairdata Download Service.
 """
-from datetime import datetime, timedelta
+from datetime import datetime
 
-from flask import Blueprint, abort, current_app, jsonify
 from celery.app.control import Inspect
+from flask import Blueprint, abort, jsonify
 
 from ..services import mq
-from ..services.mq import UnableToConnectToMQ, get_mq
+from ..services.mq import UnableToConnectToMQ
 
 healthcheck = Blueprint("healthcheck", __name__)
 

@@ -5,7 +5,6 @@
     Module for swagger blueprint used by Fairdata Download Service.
 """
 from flask import Blueprint, current_app, jsonify
-
 from flask_swagger import swagger
 from flask_swagger_ui import get_swaggerui_blueprint
 

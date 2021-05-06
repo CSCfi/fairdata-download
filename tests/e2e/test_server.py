@@ -1,7 +1,8 @@
 import json
-import pytest
 from urllib import request
 from urllib.error import HTTPError
+
+import pytest
 
 
 def test_get_requests(test_config):

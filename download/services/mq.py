@@ -4,12 +4,13 @@
 
     Message queue module for Fairdata Download Service.
 """
+from socket import gaierror
+
 import click
 from flask import current_app, g
 from flask.cli import AppGroup
 from pika import BlockingConnection, ConnectionParameters, PlainCredentials
 from pika.exceptions import AMQPConnectionError
-from socket import gaierror
 
 
 class UnableToConnectToMQ(Exception):

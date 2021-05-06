@@ -8,9 +8,9 @@ import os
 
 from flask import Flask
 
-from .services import cache, db, generator, mq
 from .blueprints.download_api import download_api
 from .blueprints.healthcheck import healthcheck
+from .services import cache, db, generator, mq
 
 
 def create_flask_app():

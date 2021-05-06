@@ -1,8 +1,8 @@
 import json
-import pytest
-
 from datetime import datetime, timedelta
-from jwt import decode, encode, ExpiredSignatureError, DecodeError
+
+import pytest
+from jwt import DecodeError, ExpiredSignatureError, decode, encode
 
 # from jwt.exceptions import DecodeError
 from requests.exceptions import ConnectionError
