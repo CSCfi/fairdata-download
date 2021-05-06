@@ -9,6 +9,8 @@ Local development server requires a RabbitMQ server instance to be available
 with the credentials being used for the service (see
 [default configuration](/download/config.py) for reference).
 
+### Python dependencies
+
 Python requirements for development server and generator can be installed with
 pip:
 
@@ -16,6 +18,17 @@ pip:
 pip install -r requirements.txt
 pip install -r requirements-dev.txt
 ```
+
+or with Poetry:
+
+Install Poetry, then run
+
+`poetry install`
+
+Updating requirements.txt with poetry:
+
+`poetry export --without-hashes -f requirements.txt --output requirements.txt`
+
 
 ## Development with Docker
 
