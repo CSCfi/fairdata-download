@@ -8,8 +8,14 @@ import os
 
 from flask import current_app
 from flask.cli import AppGroup
+from tabulate import tabulate
 
-from .db import exists_in_database
+from . import db
+
+def print_statistics():
+    cache_stats = db.get_cache_stats()
+    table_headers = ['no packages', 'overall bytes', 'largest package', 'smallest package']
+    current_app.logger.info("Cache usage statistics:\n" + tabulate([cache_stats], headers=table_headers))
 
 
 def purge():
@@ -19,7 +25,7 @@ def purge():
     removed = 0
     for root, dirs, files in os.walk(source_root):
         for name in files:
-            if not exists_in_database(name):
+            if not db.exists_in_database(name):
                 os.remove(os.path.join(root, name))
                 removed += 1
 
@@ -34,6 +40,15 @@ def get_datasets_dir():
 
     return cache_dir
 
+cache_cli = AppGroup('cache', help='Run maintentance operations against '
+                                   'download cache.')
+
+@cache_cli.command('stats')
+def stats_command():
+    """Print general cache volume usage statistics."""
+    print_statistics()
+
+@cache_cli.command('purge')
 
 cache_cli = AppGroup(
     "cache", help="Run maintentance operations against " "download cache."
