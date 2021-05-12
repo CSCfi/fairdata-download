@@ -13,6 +13,12 @@ IDA_DATA_ROOT = '/mnt/download-ida-storage'
 # Database
 DATABASE_FILE = '%s/download.db' % DOWNLOAD_CACHE_DIR
 
+# Cache
+# ~~~~~
+# Variables affecting the automated cache management
+CACHE_PURGE_THRESHOLD = 1000000000   # Default to 1GB
+CACHE_PURGE_TARGET = 750000000       # Default to 750MB
+
 # Message queue
 MQ_HOST = 'download-rabbitmq'
 MQ_VHOST = 'download'

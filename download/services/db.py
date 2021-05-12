@@ -302,11 +302,27 @@ def get_cache_stats():
 
     return db_cursor.execute(
             'SELECT count(*) as packages, '
-            '       sum(size_bytes) as bytes, '
+            '       sum(size_bytes) as usage_bytes, '
             '       max(size_bytes) as largest_package_size, '
             '       min(size_bytes) as smallest_package_size '
             'FROM package'
         ).fetchone()
+
+def get_active_packages():
+    db_conn = get_db()
+    db_cursor = db_conn.cursor()
+
+    return db_cursor.execute(
+        "SELECT p.filename as filename, "
+        "       p.size_bytes as size_bytes, "
+        "       t.date_done as generated_at, "
+        "       max(d.finished) as last_downloaded, "
+        "       count(d.finished) as no_downloads "
+        "FROM package p "
+        "JOIN generate_task t ON p.generated_by = t.task_id "
+        "LEFT JOIN download d ON p.filename = d.filename AND d.status = 'SUCCESSFUL' "
+        "GROUP BY p.filename"
+    ).fetchall()
 
 def get_package_row(generated_by):
     """Returns row from package table for a given task.

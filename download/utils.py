@@ -44,3 +44,13 @@ def startswithpath(prefix, filepath, sep='/'):
         if prefixpath[i] != path[i]:
             return False
     return True
+
+def select_packages_to_be_removed(clear_size, active_packages):
+    """Selects packages that will be pruned from the cache volume.
+
+    :param clear_size: Amount of storage in bytes that needs be cleared
+    :param active_packages: List of data about the packages in the cache. Includes filename, size in bytes, timestamps
+                            when the package was generated and last downloaded, and the overall number of downloads.
+    """
+    # TODO: implement management policy
+    return active_packages
