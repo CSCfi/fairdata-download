@@ -296,6 +296,18 @@ def exists_in_database(filename):
         (filename,)
     ).fetchone() is not None
 
+def get_cache_stats():
+    db_conn = get_db()
+    db_cursor = db_conn.cursor()
+
+    return db_cursor.execute(
+            'SELECT count(*) as packages, '
+            '       sum(size_bytes) as bytes, '
+            '       max(size_bytes) as largest_package_size, '
+            '       min(size_bytes) as smallest_package_size '
+            'FROM package'
+        ).fetchone()
+
 def get_package_row(generated_by):
     """Returns row from package table for a given task.
 
