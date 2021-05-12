@@ -11,6 +11,24 @@ from flask.cli import AppGroup
 from tabulate import tabulate
 
 from . import db
+from .. import utils
+
+def housekeep_cache():
+    cache_stats = db.get_cache_stats()
+    cache_usage = cache_stats['usage_bytes']
+    cache_purge_threshold = current_app.config['CACHE_PURGE_THRESHOLD']
+    cache_purge_target = current_app.config['CACHE_PURGE_TARGET']
+
+    if cache_usage != None and cache_usage > cache_purge_threshold:
+        clear_size = cache_usage - cache_purge_target
+        active_packages = db.get_active_packages()
+
+        packages_to_be_removed = utils.select_packages_to_be_removed(clear_size, active_packages)
+
+        table_headers = ['file name', 'size bytes', 'generated at', 'last downloaded', 'number of downloads']
+        current_app.logger.debug("Packages to be removed from cache:\n" + tabulate(packages_to_be_removed, headers=table_headers))
+    else:
+        current_app.logger.debug('Cache usage level is safe')
 
 def print_statistics():
     cache_stats = db.get_cache_stats()
@@ -42,6 +60,11 @@ def get_datasets_dir():
 
 cache_cli = AppGroup('cache', help='Run maintentance operations against '
                                    'download cache.')
+
+@cache_cli.command('housekeep')
+def housekeep_command():
+    """Execute cache housekeeping operation."""
+    housekeep_cache()
 
 @cache_cli.command('stats')
 def stats_command():
