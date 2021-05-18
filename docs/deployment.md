@@ -15,7 +15,7 @@ In order to generate compressed files to download, worker application has to be
 started with celery:
 
 ```
-celery -A download.celery worker
+celery -A download.tasks worker
 ```
 
 ## Development with Docker Swarm
