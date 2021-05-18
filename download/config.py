@@ -7,9 +7,10 @@
     variable.
 """
 
-from dotenv import load_dotenv, dotenv_values
 import os
 import pprint
+
+from dotenv import dotenv_values, load_dotenv
 
 load_dotenv()
 
