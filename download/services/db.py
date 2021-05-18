@@ -6,10 +6,14 @@
 """
 import sqlite3
 from os import path
+from typing import List
 
 import click
+import pendulum
 from flask import current_app, g
 from flask.cli import AppGroup
+
+from ..dto import Package
 
 
 def get_db():
@@ -312,18 +316,19 @@ def get_cache_stats():
     db_cursor = db_conn.cursor()
 
     return db_cursor.execute(
-            'SELECT count(*) as packages, '
-            '       sum(size_bytes) as usage_bytes, '
-            '       max(size_bytes) as largest_package_size, '
-            '       min(size_bytes) as smallest_package_size '
-            'FROM package'
-        ).fetchone()
+        "SELECT count(*) as packages, "
+        "       sum(size_bytes) as usage_bytes, "
+        "       max(size_bytes) as largest_package_size, "
+        "       min(size_bytes) as smallest_package_size "
+        "FROM package"
+    ).fetchone()
 
-def get_active_packages():
+
+def get_active_packages() -> List[Package]:
     db_conn = get_db()
     db_cursor = db_conn.cursor()
 
-    return db_cursor.execute(
+    q = db_cursor.execute(
         "SELECT p.filename as filename, "
         "       p.size_bytes as size_bytes, "
         "       t.date_done as generated_at, "
@@ -334,6 +339,27 @@ def get_active_packages():
         "LEFT JOIN download d ON p.filename = d.filename AND d.status = 'SUCCESSFUL' "
         "GROUP BY p.filename"
     ).fetchall()
+
+    packages = []
+    for row in q:
+        filename = str(row["filename"])
+        size_bytes = int(row["size_bytes"])
+        generated_at = row["generated_at"]
+        last_downloaded = row["last_downloaded"]
+        no_downloads = int(row["no_downloads"])
+        datetimes = {"generated_at": generated_at, "last_downloaded": last_downloaded}
+        converted = {}
+        for k, v in datetimes.items():
+            if isinstance(v, str):
+                if "." in v:
+                    a = v.split(".")
+                    v = a[0]
+                converted[k] = pendulum.from_format(v, "YYYY-MM-DD HH:mm:ss")
+            elif isinstance(v, int):
+                converted[k] = pendulum.from_timestamp(v / 1e3)  # sqlite microsecond timestamp
+        packages.append(Package(filename, size_bytes, no_downloads, **converted))
+    return packages
+
 
 def get_package_row(generated_by):
     """Returns row from package table for a given task.
