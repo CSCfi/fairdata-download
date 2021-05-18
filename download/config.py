@@ -24,9 +24,9 @@ DATABASE_FILE = os.environ.get("DATABASE_FILE", f"{DOWNLOAD_CACHE_DIR}/download.
 # Cache
 # ~~~~~
 # Variables affecting the automated cache management
-GB = 1073741824
-CACHE_PURGE_THRESHOLD = GB  # Default to 1GB
-CACHE_PURGE_TARGET = GB * 0.75  # Default to 750MB
+GB = int(os.environ.get("GB", 1073741824))
+CACHE_PURGE_THRESHOLD = int(os.environ.get("CACHE_PURGE_THRESHOLD", GB))  # Default to 1GB
+CACHE_PURGE_TARGET = int(os.environ.get("CACHE_PURGE_TARGET", GB * 0.75))  # Default to 750MB
 
 # Message queue
 MQ_HOST = os.environ.get("MQ_HOST", "0.0.0.0")
