@@ -30,7 +30,7 @@ from ..model.requests import (
     SubscribePostData,
 )
 from ..services import task_service
-from ..services.cache import get_datasets_dir
+from ..services.cache import get_datasets_dir, housekeep_cache
 from ..services.db import (
     create_download_record,
     create_request_scope,
@@ -297,6 +297,7 @@ def post_request():
     if not task_row:
         from ..tasks import generate_task
 
+        housekeep_cache()
         task = generate_task.delay(dataset, project_identifier, list(generate_scope))
 
         task_row = create_task_rows(dataset, task.id, is_partial, generate_scope)
@@ -305,6 +306,8 @@ def post_request():
             create_request_scope(task.id, request_scope)
 
         created = True
+
+
     else:
         current_app.logger.info(
             "Found request with status '%s' for dataset '%s'"
