@@ -8,9 +8,13 @@ from requests.exceptions import ConnectionError
 
 from .. import utils
 from . import db, metax
+from .metax import (
+    DatasetNotFound,
+    MissingFieldsInResponse,
+    NoMatchingFilesFound,
+    UnexpectedStatusCode,
+)
 
-from .metax import DatasetNotFound, MissingFieldsInResponse, NoMatchingFilesFound, \
-                   UnexpectedStatusCode
 
 class NoActiveTasksFound(Exception):
     def __init__(self, *args):
@@ -18,8 +22,11 @@ class NoActiveTasksFound(Exception):
             self.dataset = args[0]
 
     def __str__(self):
-        return ("No active file generation tasks was found for dataset "
-                "'%s'" % self.dataset)
+        return (
+            "No active file generation tasks was found for dataset "
+            "'%s'" % self.dataset
+        )
+
 
 class NoDatabaseRecordForPackageFound(Exception):
     def __init__(self, *args):
@@ -27,8 +34,11 @@ class NoDatabaseRecordForPackageFound(Exception):
             self.package = args[0]
 
     def __str__(self):
-        return ("Could not find database record for package '%s' with valid "
-                "download token" % self.package)
+        return (
+            "Could not find database record for package '%s' with valid "
+            "download token" % self.package
+        )
+
 
 class PackageOutdated(Exception):
     def __init__(self, *args):
@@ -37,8 +47,11 @@ class PackageOutdated(Exception):
             self.package = args[1]
 
     def __str__(self):
-        return ("Dataset %s has been modified since generation task for "
-                "package %s was initialized" % (self.dataset, self.package))
+        return (
+            "Dataset %s has been modified since generation task for "
+            "package %s was initialized" % (self.dataset, self.package)
+        )
+
 
 def get_active_tasks(dataset_id):
     """Get all of the available package generation tasks for a dataset.
@@ -71,6 +84,7 @@ def get_active_tasks(dataset_id):
     else:
         return task_rows
 
+
 def get_active_task(dataset_id, request_scope=[]):
     """Get package generation task for specified dataset matching given request scope.
 
@@ -95,7 +109,11 @@ def get_active_task(dataset_id, request_scope=[]):
         raise
 
     try:
-        generate_scope, project_identifier, is_partial = metax.get_matching_dataset_files_from_metax(dataset_id, request_scope)
+        (
+            generate_scope,
+            project_identifier,
+            is_partial,
+        ) = metax.get_matching_dataset_files_from_metax(dataset_id, request_scope)
     except ConnectionError:
         raise
     except UnexpectedStatusCode:
@@ -107,10 +125,11 @@ def get_active_task(dataset_id, request_scope=[]):
     task_rows = db.get_task_rows(dataset_id, dataset_modified)
 
     for row in task_rows:
-        if db.get_generate_scope_filepaths(row['task_id']) == generate_scope:
+        if db.get_generate_scope_filepaths(row["task_id"]) == generate_scope:
             return row, project_identifier, is_partial, generate_scope
 
     return None, project_identifier, is_partial, generate_scope
+
 
 def check_if_package_can_be_downloaded(dataset_id, package):
     """Get package generation task for specified dataset matching given request scope.
@@ -130,7 +149,7 @@ def check_if_package_can_be_downloaded(dataset_id, package):
     if task_row is None:
         raise NoDatabaseRecordForPackageFound(package)
 
-    initiated = utils.convert_utc_timestamp(task_row['initiated'])
+    initiated = utils.convert_utc_timestamp(task_row["initiated"])
 
     # Check dataset metadata in Metax API
     try:

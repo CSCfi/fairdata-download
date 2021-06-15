@@ -9,6 +9,7 @@ from celery import Celery, Task
 from . import create_flask_app
 from .services.generator import generate
 
+
 def create_celery_app(app=None):
     """Celery application factory. Hooks task execution into Flask application
     context.
@@ -21,37 +22,42 @@ def create_celery_app(app=None):
     :param app: Flask application to hook celery application into
     """
     app = app or create_flask_app()
+
     class ContextTask(Task):
         """Superclass for binding Celery class task execution to Flask
         application context.
 
         """
+
         def __call__(self, *args, **kwargs):
             with app.app_context():
                 return self.run(*args, **kwargs)
 
-    celery_broker_url = 'pyamqp://%s:%s@%s/%s' % (
-        app.config['MQ_USER'],
-        app.config['MQ_PASS'],
-        app.config['MQ_HOST'],
-        app.config['MQ_VHOST'])
-    celery_broker_backend = 'db+sqlite:///%s' % app.config['DATABASE_FILE']
+    celery_broker_url = "pyamqp://%s:%s@%s/%s" % (
+        app.config["MQ_USER"],
+        app.config["MQ_PASS"],
+        app.config["MQ_HOST"],
+        app.config["MQ_VHOST"],
+    )
+    celery_broker_backend = "db+sqlite:///%s" % app.config["DATABASE_FILE"]
 
-    celery = Celery('generator',
-                    broker=celery_broker_url,
-                    backend=celery_broker_backend)
+    celery = Celery(
+        "generator", broker=celery_broker_url, backend=celery_broker_backend
+    )
 
     celery.conf.database_table_names = {
-        'task': 'generate_task',
-        'group': 'generate_taskgroup'
+        "task": "generate_task",
+        "group": "generate_taskgroup",
     }
     celery.Task = ContextTask
 
     return celery
 
+
 celery_app = create_celery_app()
 
-@celery_app.task(name='generate-task', track_started=True, bind=True)
+
+@celery_app.task(name="generate-task", track_started=True, bind=True)
 def generate_task(self, dataset, project_identifier, scope):
     """Celery task for generating download packages in background."""
     return generate(dataset, project_identifier, scope, self.request.id)
