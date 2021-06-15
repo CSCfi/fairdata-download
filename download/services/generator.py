@@ -14,7 +14,7 @@ from click import option
 from flask import current_app
 from flask.cli import AppGroup
 
-from .cache import get_datasets_dir
+from .cache import get_datasets_dir, housekeep_cache
 from .db import delete_subscription_rows, get_db, get_subscription_rows
 
 
@@ -98,6 +98,7 @@ def generate(dataset, project_identifier, scope, requestor_id):
         )
 
     delete_subscription_rows(requestor_id)
+    housekeep_cache()
 
 
 generator_cli = AppGroup("generator", help="Run download file generator operations.")

@@ -305,6 +305,8 @@ def post_request():
             create_request_scope(task.id, request_scope)
 
         created = True
+
+
     else:
         current_app.logger.info(
             "Found request with status '%s' for dataset '%s'"

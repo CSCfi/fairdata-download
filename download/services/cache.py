@@ -5,25 +5,78 @@
     Cache management module for Fairdata Download Service.
 """
 import os
+from dataclasses import asdict
+from typing import List
 
 from flask import current_app
 from flask.cli import AppGroup
+from tabulate import tabulate
 
-from .db import exists_in_database
+from .. import utils
+from ..dto import Package
+from . import db
+
+
+def housekeep_cache():
+    cache_stats = db.get_cache_stats()
+    cache_usage = cache_stats["usage_bytes"]
+    cache_purge_threshold = current_app.config["CACHE_PURGE_THRESHOLD"]
+    cache_purge_target = current_app.config["CACHE_PURGE_TARGET"]
+
+    if cache_usage != None and cache_usage > cache_purge_threshold:
+        clear_size = cache_usage - cache_purge_target
+        active_packages = db.get_active_packages()
+
+        remove, expired, ranked = utils.select_packages_to_be_removed(
+            clear_size, active_packages
+        )
+
+        exp_values = [asdict(i) for i in expired]
+
+        current_app.logger.debug(
+            "Packages to be removed from cache:\n"
+            + tabulate(exp_values, headers="keys")
+        )
+        remove_cache_files(remove)
+    else:
+        current_app.logger.debug("Cache usage level is safe")
+
+
+def print_statistics():
+    cache_stats = db.get_cache_stats()
+    table_headers = [
+        "no packages",
+        "overall bytes",
+        "largest package",
+        "smallest package",
+    ]
+    current_app.logger.info(
+        "Cache usage statistics:\n" + tabulate([cache_stats], headers=table_headers)
+    )
+
+
+def remove_cache_files(files_list: List[Package] = None):
+    file_names = None
+    if files_list:
+        file_names = [i.filename for i in files_list]
+    removed = []
+    source_root = os.path.join(current_app.config["DOWNLOAD_CACHE_DIR"], "datasets")
+    for root, dirs, files in os.walk(source_root):
+        for name in files:
+            if file_names:
+                if name in file_names:
+                    os.remove(os.path.join(root, name))
+                    removed.append(name)
+            else:
+                os.remove(os.path.join(root, name))
+                removed.append(name)
+    current_app.logger.info(f"Removed {len(removed)} files")
+    current_app.logger.debug(f"Removed file names: {removed}")
 
 
 def purge():
     """Purge files from cache that cannot be found in the database."""
-    source_root = os.path.join(current_app.config["DOWNLOAD_CACHE_DIR"], "datasets")
-
-    removed = 0
-    for root, dirs, files in os.walk(source_root):
-        for name in files:
-            if not exists_in_database(name):
-                os.remove(os.path.join(root, name))
-                removed += 1
-
-    current_app.logger.debug("Removed %s files" % removed)
+    remove_cache_files()
 
 
 def get_datasets_dir():
@@ -38,6 +91,18 @@ def get_datasets_dir():
 cache_cli = AppGroup(
     "cache", help="Run maintentance operations against " "download cache."
 )
+
+
+@cache_cli.command("housekeep")
+def housekeep_command():
+    """Execute cache housekeeping operation."""
+    housekeep_cache()
+
+
+@cache_cli.command("stats")
+def stats_command():
+    """Print general cache volume usage statistics."""
+    print_statistics()
 
 
 @cache_cli.command("purge")
