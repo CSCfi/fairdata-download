@@ -41,4 +41,3 @@ DEBUG = os.environ.get("DEBUG", False)
 
 if DEBUG:
     pprint.pprint(dotenv_values(".env"))
-
