@@ -536,11 +536,11 @@ def authorize():
     package = request_data.get("package")
 
     if package is None:
-        filename = request_data.get('filename') or abort(400)
+        filename = request_data.get("filename") or abort(400)
         try:
             project_identifier = get_matching_project_identifier_from_metax(
-                dataset,
-                filename)
+                dataset, filename
+            )
         except NoMatchingFilesFound as err:
             abort(404, err)
 
