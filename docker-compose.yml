@@ -49,7 +49,7 @@ services:
       - 15672:15672
 
   fairdata-nginx:
-    image: nginx
+    image: fairdata-docker.artifactory.ci.csc.fi/nginx
     configs:
       - source: fairdata-nginx-config
         target: '/etc/nginx/nginx.conf'
