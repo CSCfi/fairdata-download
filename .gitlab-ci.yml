@@ -16,6 +16,8 @@ stages:
 
 run_unit_tests:
   stage: test
+  tags:
+    - shell
   script:
     - python3.8 -m virtualenv venv
     - source venv/bin/activate

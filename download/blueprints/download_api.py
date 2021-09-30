@@ -478,7 +478,7 @@ def authorize():
         description: Token for downloading the requested file or package
         schema:
           $ref: "#/definitions/Authorize Response"
-      400:
+      404:
         description: No dataset file or active generated package matching
                      request was found
       409:
@@ -498,11 +498,12 @@ def authorize():
 
     if package is None:
         filename = request_data.get('filename') or abort(400)
-        project_identifier = get_matching_project_identifier_from_metax(
-            dataset,
-            filename)
-        if project_identifier is None:
-            abort(500, "No matching project was found for dataset '%s' and filename '%s'" % (dataset, filename))
+        try:
+            project_identifier = get_matching_project_identifier_from_metax(
+                dataset,
+                filename)
+        except NoMatchingFilesFound as err:
+            abort(404, err)
 
         # Create JWT
         jwt_payload = {
