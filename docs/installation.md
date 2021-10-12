@@ -17,6 +17,20 @@ pip install -r requirements.txt
 pip install -r requirements-dev.txt
 ```
 
+or with Poetry:
+```
+poetry install
+```
+
+You can also generate new requirements.txt from pyproject.toml with Poetry:
+```
+# no development deps
+poetry export --without-hashes -o requirements.txt
+
+# with development dependencies
+poetry export --without-hashes --dev -o requirements-dev.txt
+```
+
 ## Development with Docker
 
 Repository includes Dockerfiles for server and generator processes for
