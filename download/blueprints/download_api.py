@@ -15,7 +15,7 @@ from jwt.exceptions import DecodeError
 from requests.exceptions import ConnectionError
 
 from ..services import task_service
-from ..services.cache import get_datasets_dir
+from ..services.cache import get_datasets_dir, housekeep_cache
 from ..services.db import get_download_record, get_request_scopes, \
                           get_task_for_package, get_task_rows, \
                           create_download_record, create_request_scope, \
@@ -271,6 +271,7 @@ def post_request():
     # Create new task if no such already exists
     if not task_row:
         from ..celery import generate_task
+        housekeep_cache()
         task = generate_task.delay(
             dataset,
             project_identifier,

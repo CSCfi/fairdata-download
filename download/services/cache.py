@@ -27,16 +27,27 @@ def housekeep_cache():
     if cache_usage != None and cache_usage > cache_purge_threshold:
         clear_size = cache_usage - cache_purge_target
         active_packages = db.get_active_packages()
+        current_app.logger.info("active packages retrieved from database:\n"
+                                + tabulate([asdict(i) for i in active_packages], headers="keys"))
 
         remove, expired, ranked = utils.select_packages_to_be_removed(
             clear_size, active_packages
         )
 
-        current_app.logger.debug(
+        current_app.logger.info(
             "Packages to be removed from cache:\n"
             + tabulate([asdict(i) for i in remove], headers="keys")
         )
-        remove_cache_files(remove)
+        enable_file_deletion = current_app.config["ENABLE_CACHE_FILE_DELETION"]
+        if enable_file_deletion:
+            remove_cache_files(remove)
+        else:
+            current_app.logger.warning("cache file deletion is turned off, no files were deleted")
+
+            current_app.logger.info("file ranking results from cache management:\n"
+                                    + tabulate([asdict(i) for i in ranked], headers="keys"))
+            current_app.logger.info("expired files according to cache management:\n"
+                                    + tabulate([asdict(i) for i in expired], headers="keys"))
     else:
         current_app.logger.debug("Cache usage level is safe")
 
@@ -56,7 +67,7 @@ def print_statistics():
 
 def remove_cache_files(files_list: List[Package] = None):
     if not files_list:
-        current_app.logger.error(f"Empty file list to be removed from cache")
+        current_app.logger.error(f"Empty file list to be removed from cache, aborting")
         return
     file_names = None
     if files_list:
@@ -71,7 +82,7 @@ def remove_cache_files(files_list: List[Package] = None):
                     removed.append(name)
     db.delete_package_rows(removed)
     current_app.logger.info(f"Removed {len(removed)} files")
-    current_app.logger.debug(f"Removed file names: {removed}")
+    current_app.logger.info(f"Removed file names: {removed}")
 
 
 def purge():
