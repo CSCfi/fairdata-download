@@ -21,8 +21,8 @@ from . import db
 def housekeep_cache():
     cache_stats = db.get_cache_stats()
     cache_usage = cache_stats["usage_bytes"]
-    cache_purge_threshold = current_app.config["CACHE_PURGE_THRESHOLD"]
-    cache_purge_target = current_app.config["CACHE_PURGE_TARGET"]
+    cache_purge_threshold = int(current_app.config["CACHE_PURGE_THRESHOLD"])
+    cache_purge_target = int(current_app.config["CACHE_PURGE_TARGET"])
 
     if cache_usage != None and cache_usage > cache_purge_threshold:
         clear_size = cache_usage - cache_purge_target
