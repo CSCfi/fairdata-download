@@ -25,6 +25,8 @@ def housekeep_cache():
     cache_purge_target = int(current_app.config["CACHE_PURGE_TARGET"])
 
     if cache_usage != None and cache_usage > cache_purge_threshold or current_app.config["ALWAYS_CALCULATE_CACHE_RANKING"]:
+        if current_app.config["ALWAYS_CALCULATE_CACHE_RANKING"]:
+            current_app.logger.warning("cache ranking was triggered artificially")
         clear_size = cache_usage - cache_purge_target
         active_packages = db.get_active_packages()
         current_app.logger.info("active packages retrieved from database:\n"
