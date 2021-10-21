@@ -20,6 +20,7 @@ GB = 1073741824
 CACHE_PURGE_THRESHOLD = GB  # Default to 1GB
 CACHE_PURGE_TARGET = GB * 0.75  # Default to 750MB
 ENABLE_CACHE_FILE_DELETION = False
+ALWAYS_CALCULATE_CACHE_RANKING = False
 
 # Message queue
 MQ_HOST = 'download-rabbitmq'
