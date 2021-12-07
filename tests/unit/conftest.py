@@ -82,7 +82,7 @@ def mock_celery(monkeypatch, recorder, celery_task):
         return celery_task
 
     monkeypatch.setattr(
-        'download.celery.generate_task.delay', mock_generate_task)
+        'download.tasks.generate_task.delay', mock_generate_task)
 
 @pytest.fixture
 def metax_dataset_available(monkeypatch):

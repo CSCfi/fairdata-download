@@ -270,7 +270,8 @@ def post_request():
 
     # Create new task if no such already exists
     if not task_row:
-        from ..celery import generate_task
+        from ..tasks import generate_task
+        housekeep_cache()
         task = generate_task.delay(
             dataset,
             project_identifier,
