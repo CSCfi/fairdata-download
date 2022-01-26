@@ -271,7 +271,6 @@ def post_request():
     # Create new task if no such already exists
     if not task_row:
         from ..celery import generate_task
-        housekeep_cache()
         task = generate_task.delay(
             dataset,
             project_identifier,
@@ -324,7 +323,8 @@ def post_request():
             partial_task['checksum'] = package_row['checksum']
 
         response['partial'] = [partial_task]
-
+    if current_app.config["ALWAYS_RUN_HOUSEKEEPING_IN_REQUEST_ENDPOINT"]:
+        housekeep_cache()
     return jsonify(response)
 
 @download_api.route('/subscribe', methods=['POST'])
@@ -618,6 +618,9 @@ def download():
             current_app.logger.info(
                 "Received invalid autorization method '%s'" % auth_method)
             abort(401)
+
+    if current_app.config['ALWAYS_RUN_HOUSEKEEPING_IN_DOWNLOAD_ENDPOINT'] is True:
+        housekeep_cache()
 
     download_row = get_download_record(auth_token)
 
