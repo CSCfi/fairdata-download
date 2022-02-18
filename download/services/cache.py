@@ -89,7 +89,19 @@ def remove_cache_files(files_list: List[Package] = None):
 
 def purge():
     """Purge files from cache that cannot be found in the database."""
-    remove_cache_files()
+    source_root = os.path.join(current_app.config['DOWNLOAD_CACHE_DIR'], 'datasets')
+
+    removed = 0
+    for root, dirs, files in os.walk(source_root):
+        for name in files:
+            if not db.exists_in_database(name):
+                os.remove(os.path.join(root, name))
+                removed += 1
+
+    current_app.logger.debug('Removed %s files' % removed)
+
+    # Fix this function later to use remove_cache_files function properly
+    # remove_cache_files()
 
 
 def get_datasets_dir():
