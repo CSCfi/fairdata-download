@@ -44,7 +44,7 @@ def create_flask_app():
                                         download_api_swagger_ui
         app.register_blueprint(download_api_swagger)
         app.register_blueprint(download_api_swagger_ui)
-        app.logger.setLevel(logging.INFO)
+        app.logger.setLevel(logging.DEBUG)
     elif os.environ.get('FLASK_ENV') == 'production':
         app.logger.setLevel(logging.ERROR)
 
