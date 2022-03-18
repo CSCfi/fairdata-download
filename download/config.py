@@ -33,7 +33,7 @@ MQ_PASS = 'download'
 # JWT
 JWT_SECRET = 'secret'
 JWT_ALGORITHM = 'HS256'
-JWT_TTL = 60
+JWT_TTL = 4320
 
 # Metax API
 METAX_URL = 'https://metax.fd-dev.csc.fi/'
