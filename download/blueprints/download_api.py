@@ -507,6 +507,9 @@ def authorize():
         except NoMatchingFilesFound as err:
             abort(404, err)
 
+        # Verify current_app.config
+        current_app.logger.debug(current_app.config)
+
         # Create JWT
         jwt_payload = {
             'exp': datetime.utcnow()
@@ -530,6 +533,9 @@ def authorize():
             abort(404, err)
         except task_service.PackageOutdated as err:
             abort(409, err)
+
+        # Verify current_app.config
+        current_app.logger.debug(current_app.config)
 
         # Create JWT
         jwt_payload = {
