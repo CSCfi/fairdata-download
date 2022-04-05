@@ -21,3 +21,43 @@ See [deployment instructions](/docs/deployment.md).
 ## Testing
 
 See [testing instructions](/docs/testing.md).
+
+### Dependency management: Poetry
+
+Python dependencies are managed with [Poetry](https://python-poetry.org/docs/)
+
+```
+# Setup part 1: Install pipx: 
+https://github.com/pypa/pipx
+
+# Setup part 2: Then, with pipx install poetry
+pipx install poetry
+
+# Installing dependencies
+poetry install
+```
+
+## Updating Python dependencies
+
+```
+# Add dependency
+poetry add {{ dependency }}
+
+# Add dev dependency
+poetry add --dev {{ dependency }}
+
+# Edit dependency (or dev dependency) version
+{{ edit_command }} pyproject.toml
+
+# Update requirements.txt
+poetry export --without-hashes -o requirements.txt
+
+# Update requirements-dev.txt
+poetry export --dev --without-hashes -o requirements.txt
+```
+
+License
+-------
+Copyright (c) 2018-2022 Ministry of Education and Culture, Finland
+
+Licensed under [MIT License](LICENSE)
