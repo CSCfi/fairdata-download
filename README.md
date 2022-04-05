@@ -22,9 +22,11 @@ See [deployment instructions](/docs/deployment.md).
 
 See [testing instructions](/docs/testing.md).
 
-### Dependency management: Poetry
+## Dependency management: Poetry
 
 Python dependencies are managed with [Poetry](https://python-poetry.org/docs/)
+
+### Poetry setup instructions 
 
 ```
 # Setup part 1: Install pipx: 
@@ -37,7 +39,7 @@ pipx install poetry
 poetry install
 ```
 
-## Updating Python dependencies
+### Updating Python dependencies with Poetry
 
 ```
 # Add dependency
