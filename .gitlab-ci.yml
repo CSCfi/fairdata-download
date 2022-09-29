@@ -1,28 +1,82 @@
-workflow:
-  rules:
-    - if: $CI_COMMIT_BRANCH =~ /^(demo|stable|staging|test)$/
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME !~ /^(demo|master|stable|staging|test)$/
-
 variables:
+  GITLAB_ENV: test
+  SERVICE: ${SERVICE}
   INSTANCE: download-$CI_COMMIT_REF_SLUG
   VERSION: $CI_COMMIT_BRANCH
 
-include:
-  - project: fairdata/fairdata-ci
-    ref: staging
-    file:
-      - /templates/deploy.yml
-      - /templates/review.yml
+default:
+  tags:
+    - shell
+
+# ~~~~~~~~~~~~~~~~~~~~~~ #
 
 stages:
   - test
   - deploy
-  - clean
+  - unit-test
 
-run_unit_tests:
-  stage: test
+# ~~~~~~~~~~~~~~~~~~~~~~ #
+
+include:
+  - project: fairdata/fairdata-ci
+    ref: master
+    file:
+      - /templates/deploy.yml
+# What is this?
+#      - /templates/review.yml
+    rules:
+    - if: $CI_COMMIT_BRANCH =~ /^(master)$/
+    - if: $CI_PIPELINE_SOURCE =~ /^(web)$/
+
+# ~~~~~~~~~~~~~~~~~~~~~~ #
+
+#deploy-feature-to-staging:
+#  stage: deploy-feature-branch
+#  environment: staging
+#  script:
+#    - ansible-playbook -i $ANSIBLE_INVENTORY $DEPLOY_PLAYBOOK -e repo_version=${CI_COMMIT_REF_NAME} --vault-id $ANSIBLE_VAULT_FILE
+#  rules:
+#    - if: $CI_COMMIT_BRANCH =~ /^(master|release)$/
+#      when: never
+#    - if: $CI_PIPELINE_SOURCE !~ /^(web)$/
+#   - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME !~ /^(master|release)$/
+
+# ~~~~~~~~~~~~~~~~~~~~~~ #
+
+sonarqube:
   tags:
-    - shell
+    - docker
+  stage: test
+  image:
+    name: sonarsource/sonar-scanner-cli:latest
+    entrypoint: [""]
+  variables:
+    SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"
+    GIT_DEPTH: "0"
+  cache:
+    key: "${CI_JOB_NAME}"
+    paths:
+      - .sonar/cache
+  script:
+    - sonar-scanner
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      allow_failure: true
+    - if: $CI_COMMIT_BRANCH =~ /^(master)$/ && $CI_PIPELINE_SOURCE !~ /^(web)$/
+      allow_failure: true
+    - if: $CI_COMMIT_BRANCH =~ /^(release)$/
+
+#fairdata-e2e:
+#  stage: test
+#  trigger: fairdata/fairdata-ci
+#  rules:
+#    - if: $CI_COMMIT_BRANCH =~ /^(master|release)$/
+#    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME !~ /^(master|release)$/
+
+# ~~~~~~~~~~~~~~~~~~~~~~ #
+
+unit-test:
+  stage: unit-test
   script:
     - python3.8 -m virtualenv venv
     - source venv/bin/activate
@@ -30,27 +84,9 @@ run_unit_tests:
     - pip install -r requirements-dev.txt
     - coverage run -m pytest
     - coverage report -m
-  when: always
+  rules:
+    - if: $CI_COMMIT_BRANCH =~ /^(master|release)$/
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME !~ /^(master|release)$/
 
-sonarqube-check:
-  stage: test
-  tags:
-    - docker
-  image:
-    name: sonarsource/sonar-scanner-cli:latest
-    entrypoint: [""]
-  variables:
-    SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"  # Defines the location of the analysis task cache
-    GIT_DEPTH: "0"  # Tells git to fetch all the branches of the project, required by the analysis task
-  cache:
-    key: "${CI_JOB_NAME}"
-    paths:
-      - .sonar/cache
-  script:
-    - sonar-scanner
-  allow_failure: true
-  only:
-    - merge_requests
-    - master
-    - test
-    - staging
+
+# ~~~~~~~~~~~~~~~~~~~~~~ #
