@@ -21,9 +21,7 @@ include:
   - project: fairdata/fairdata-ci
     ref: master
     file:
-      - /templates/deploy.yml
-# What is this?
-#      - /templates/review.yml
+      - /templates/deploy/deploy.yml
     rules:
     - if: $CI_COMMIT_BRANCH =~ /^(master)$/
     - if: $CI_PIPELINE_SOURCE =~ /^(web)$/
