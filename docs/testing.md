@@ -2,22 +2,33 @@
 
 ## Unit Tests
 
-Unit tests can be run locally with coverage:
+Unit tests are easily executed in the local development environment by running the command
 
 ```
+dev_config/utils/run-tests
+```
+
+Unit tests can be run manually with coverage:
+
+```
+source venv/bin/activate
 coverage run -m pytest
-```
-
-After running tests, coverage report can be displayed with:
-
-```
 coverage report -m
 ```
 
-## End to End Tests
+## Behavioral and Integration Tests
 
-End to end tests can be run with the following command:
+A comprehensive suite of behavioral and integration tests, including end-to-end tests
+between the download service and IDA and Metax, are provided in the fairdata-ida
+gitlab repository and are available as part of a running non-production IDA service
+instance.
+
+If the download service is running on a host that is also running the IDA service,
+then the behavioral and integration tests are easily executed by running the command
 
 ```
-coverage run -m pytest tests/e2e
+/var/ida/tests/run-tests tests.download
 ```
+
+Note that the download service cache and database will be flushed and rebuilt several
+times as part of executing these tests.

@@ -5,9 +5,11 @@
     Celery application module for Fairdata Download Service.
 """
 from celery import Celery, Task
+from flask import current_app
 
 from . import create_flask_app
 from .services.generator import generate
+from .utils import ida_service_is_offline
 
 def create_celery_app(app=None):
     """Celery application factory. Hooks task execution into Flask application
@@ -54,4 +56,7 @@ celery_app = create_celery_app()
 @celery_app.task(name='generate-task', track_started=True, bind=True)
 def generate_task(self, dataset, project_identifier, scope):
     """Celery task for generating download packages in background."""
+    # If the IDA service is offline, retry the task after the configured delay (default 60 seconds)
+    if ida_service_is_offline(current_app):
+        raise self.retry(countdown=current_app.config.get('TASK_RETRY_DELAY', 60), max_retries=None)
     return generate(dataset, project_identifier, scope, self.request.id)

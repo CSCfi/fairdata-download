@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+#--------------------------------------------------------------------------------
+# This script is used to configure and manage a local development instance of
+# the download service. It should NOT be used in production.
+#--------------------------------------------------------------------------------
+
+SCRIPT="$(realpath $0)"
+UTILS=`dirname "$SCRIPT"`
+
+source $UTILS/init-dev-script.sh
+
+#--------------------------------------------------------------------------------
+
+while true; do
+    date
+    curl -s -k "https://localhost:4430/download?dataset=foo&file=bar" >/dev/null
+    ps -eo size,pid,user,command --sort -size | grep fairdata-download | \
+        awk '{ hr=$1/1024 ; printf("%13.2f Mb ",hr) } { for ( x=4 ; x<=NF ; x++) { printf("%s ",$x) } print "" }' | \
+        cut -d "" -f2 | grep -v grep | sed -e 's/--workers.*$//' 
+    sleep 10
+done
+

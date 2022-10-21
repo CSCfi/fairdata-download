@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+#--------------------------------------------------------------------------------
+# This script is used to configure and manage a local development instance of
+# the download service. It should NOT be used in production.
+#--------------------------------------------------------------------------------
+
+SCRIPT="$(realpath $0)"
+UTILS=`dirname "$SCRIPT"`
+
+source $UTILS/init-dev-script.sh
+
+#--------------------------------------------------------------------------------
+
+cd $ROOT
+
+systemctl --quiet stop fairdata-download-server       &>/dev/null
+systemctl --quiet disable fairdata-download-server    &>/dev/null
+systemctl --quiet stop fairdata-download-generator    &>/dev/null
+systemctl --quiet disable fairdata-download-generator &>/dev/null
+
+declare -a FILES=(
+    "/etc/nginx/conf.d/fairdata-download-service.nginx.conf"
+    "/usr/lib/systemd/system/fairdata-download-server.service"
+    "/usr/lib/systemd/system/fairdata-download-generator.service"
+    "/usr/lib/systemd/system/fairdata-download-generator.service"
+    "/usr/lib/systemd/system/fairdata-download-server.socket"
+    "/etc/systemd/system/fairdata-download-server.service"
+    "/etc/systemd/system/fairdata-download-generator.service"
+    "/etc/systemd/system/fairdata-download-server.socket"
+)
+
+for FILE in "${FILES[@]}"; do
+    if [ -f $FILE -o -L $FILE ]; then
+        echo "Removing $FILE"
+        rm $FILE
+    fi
+done
+
+declare -a DIRS=(
+    "$ROOT/data"
+    "$ROOT/venv"
+    "/var/log/fairdata-download-service"
+    "/run/fairdata-download-service"
+    "/run/fairdata-download-generator"
+)
+
+for DIR in "${DIRS[@]}"; do
+    if [ -d $DIR ]; then
+        echo "Removing $DIR"
+        rm -fr $DIR
+    fi
+done
+
+#--------------------------------------------------------------------------------
+
+$UTILS/initialize-venv
+$UTILS/fix-permissions
+
+mkdir -p  /var/log/fairdata-download-service
+chmod 777 /var/log/fairdata-download-service
+
+mkdir -p  $ROOT/data/download-cache
+chmod 777 $ROOT/data/download-cache
+
+mkdir -p  $ROOT/data/db
+chmod 777 $ROOT/data/db
+
+# Ideally the dev instance of the download service is running on the same host as a dev IDA instance,
+# and we will access the IDA data storage root, but if not, we'll simply initialize an empty directory
+if [ -d /mnt/storage_vol01/ida ]; then
+    # TODO make this a read-only local mount
+    usermod -a -G apache download
+    ln -s /mnt/storage_vol01/ida $ROOT/data/ida-data
+else
+    mkdir -p  $ROOT/data/ida-data
+    chmod 777 $ROOT/data/ida-data
+fi
+
+ln -s $DEV/fairdata-download-service.nginx.conf /etc/nginx/conf.d/fairdata-download-service.nginx.conf
+ln -s $DEV/fairdata-download-server.socket /usr/lib/systemd/system/fairdata-download-server.socket
+ln -s $DEV/fairdata-download-server.service /usr/lib/systemd/system/fairdata-download-server.service
+ln -s $DEV/fairdata-download-generator.service /usr/lib/systemd/system/fairdata-download-generator.service
+
+$UTILS/initialize-rabbitmq
+
+systemctl daemon-reload
+
+systemctl stop nginx
+systemctl start fairdata-download-server
+systemctl start fairdata-download-generator
+systemctl start nginx
+systemctl enable fairdata-download-server
+systemctl enable fairdata-download-generator
+systemctl status -l fairdata-download-server
+systemctl status -l fairdata-download-generator
+systemctl status -l nginx

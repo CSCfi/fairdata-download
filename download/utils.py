@@ -4,6 +4,8 @@
 
     Utility module for Fairdata Download Service.
 """
+import os
+
 from dataclasses import asdict
 from datetime import datetime
 from typing import List
@@ -11,9 +13,9 @@ from typing import List
 import pendulum
 import pytz
 
-from .config import GB
 from .dto import Package
 
+GB = 1073741824
 
 def convert_utc_timestamp(utc_timestamp):
     """Converts a string from UTC naive form to UTC localtime.
@@ -118,3 +120,24 @@ def select_packages_to_be_removed(clear_size: int, active_packages: List[Package
                 break
 
     return removable, expired_packages, ranked_packages
+
+
+def ida_service_is_offline(current_app):
+    """If the IDA service is offline, determined by the presence of the OFFLINE sentinel
+    file, log a warning and return True, else return False. Only log on the first detection,
+    not on subsequent iterations, until such time as the sentinel file no longer exists.
+    """
+    sentinel_file="%s/control/OFFLINE" % current_app.config['IDA_DATA_ROOT']
+    current_app.logger.debug("IDA sentinel file pathname: %s" % sentinel_file)
+    if os.path.exists(sentinel_file):
+        current_app.logger.debug("The IDA service is offline")
+        if not current_app.config.get('IDA_OFFLINE_REPORTED', False):
+            current_app.logger.warn("The IDA service is offline. Package generation and file download is paused.")
+            current_app.config['IDA_OFFLINE_REPORTED'] = True
+        return True
+    else:
+        current_app.logger.debug("The IDA service is online")
+        if current_app.config.get('IDA_OFFLINE_REPORTED', False):
+            current_app.logger.warn("The IDA service is again online. Package generation and file download is resumed.")
+            current_app.config['IDA_OFFLINE_REPORTED'] = False
+        return False

@@ -6,6 +6,7 @@
 """
 import hashlib
 import os
+import sys
 import requests
 import tempfile
 from zipfile import ZipFile, ZIP_DEFLATED
@@ -16,6 +17,8 @@ from flask.cli import AppGroup
 
 from .cache import get_datasets_dir
 from .db import get_db, get_subscription_rows, delete_subscription_rows
+from ..utils import ida_service_is_offline
+
 
 def generate(dataset, project_identifier, scope, requestor_id):
     """Generates downloadable compressed file next dataset in request queue.
@@ -26,6 +29,7 @@ def generate(dataset, project_identifier, scope, requestor_id):
     :param scope: Iteratable object containing files to be included in package.
     :param requestor_id: ID of task requesting file generation.
     """
+
     output_filehandle, output_filename = tempfile.mkstemp(
         suffix='.zip',
         prefix=dataset + '_',
@@ -65,9 +69,14 @@ def generate(dataset, project_identifier, scope, requestor_id):
 
     output_checksum = 'sha256:' + sha256_hash.hexdigest()
 
-    current_app.logger.info(
-        "Generated download file '%s' of size %s bytes." %
-        (os.path.basename(output_filename), output_filesize))
+    # If the IDA service is offline (having gone offline since generation of the package began), discard
+    # the generated package file (assume potentially corrupted) and otherwise do nothing...
+    if ida_service_is_offline(current_app):
+        current_app.logger.warn("Discarding download file '%s' of size %s bytes." % (os.path.basename(output_filename), output_filesize))
+        os.remove(output_filename)
+        return
+
+    current_app.logger.info("Generated download file '%s' of size %s bytes." % (os.path.basename(output_filename), output_filesize))
 
     # Insert package metadata to database
     db_conn = get_db()
@@ -81,16 +90,21 @@ def generate(dataset, project_identifier, scope, requestor_id):
     db_conn.commit()
 
     # Send subscription notifications and delete subscription rows
-    for subscription_row in get_subscription_rows(requestor_id):
-        current_app.logger.debug("Posting subscription notification to '%s'" % subscription_row['notify_url'])
-        requests.post(
-            subscription_row['notify_url'],
-            json={ 'subscriptionData': subscription_row['subscription_data'] }
-        )
+    try:
+        for subscription_row in get_subscription_rows(requestor_id):
+            current_app.logger.debug("Posting subscription notification to '%s'" % subscription_row['notify_url'])
+            requests.post(
+                subscription_row['notify_url'],
+                json={ 'subscriptionData': subscription_row['subscription_data'] }
+            )
+    
+        delete_subscription_rows(requestor_id)
+    except requests.exceptions.RequestException as e:
+        current_app.logger.error("Error posting subscription notification: %s" % str(e))
 
-    delete_subscription_rows(requestor_id)
 
 generator_cli = AppGroup('generator', help='Run download file generator operations.')
+
 
 @generator_cli.command('generate')
 @option('--dataset', help='Dataset for which the package is generated')
@@ -103,6 +117,7 @@ def generate_command(dataset, project_identifier, scope):
     :param dataset: ID of dataset for which generated package files belong to
     """
     generate(dataset, project_identifier, scope, 'click')
+
 
 def init_app(app):
     """Hooks generator module to given Flask application.

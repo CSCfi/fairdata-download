@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+#--------------------------------------------------------------------------------
+# This script is used to configure and manage a local development instance of
+# the download service. It should NOT be used in production.
+#--------------------------------------------------------------------------------
+
+SCRIPT="$(realpath $0)"
+UTILS=`dirname "$SCRIPT"`
+
+source $UTILS/init-dev-script.sh
+
+#--------------------------------------------------------------------------------
+
+if [ ! -d $ROOT/venv ]; then
+    echo "Could not find virtual environment $ROOT/venv" >&2
+    exit 1
+fi
+
+source $ROOT/venv/bin/activate
+
+pip install --upgrade pip
+pip install -r $ROOT/requirements.txt
+pip install -r $ROOT/requirements-dev.txt

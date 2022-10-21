@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+#--------------------------------------------------------------------------------
+# This script is used to configure and manage a local development instance of
+# the download service. It should NOT be used in production.
+#--------------------------------------------------------------------------------
+
+SCRIPT="$(realpath $0)"
+UTILS=`dirname "$SCRIPT"`
+
+source $UTILS/init-dev-script.sh
+
+#--------------------------------------------------------------------------------
+
+if [ -f $DATABASE_FILE ]; then
+    rm -f $DATABASE_FILE
+fi
+
+if [ -d $DOWNLOAD_CACHE_DIR/datasets ]; then
+    rm -f $DOWNLOAD_CACHE_DIR/datasets/*
+fi
+
+if [ -d $DOWNLOAD_CACHE_DIR/mock_notifications ]; then
+    rm -f $DOWNLOAD_CACHE_DIR/mock_notifications/*
+fi

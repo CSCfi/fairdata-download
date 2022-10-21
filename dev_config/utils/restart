@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+#--------------------------------------------------------------------------------
+# This script is used to configure and manage a local development instance of
+# the download service. It should NOT be used in production.
+#--------------------------------------------------------------------------------
+
+SCRIPT="$(realpath $0)"
+UTILS=`dirname "$SCRIPT"`
+
+source $UTILS/init-dev-script.sh
+
+#--------------------------------------------------------------------------------
+
+systemctl daemon-reload
+systemctl stop nginx
+systemctl stop fairdata-download-server
+systemctl stop fairdata-download-generator
+systemctl start fairdata-download-generator
+systemctl start fairdata-download-server
+systemctl start nginx
+systemctl status -l nginx
+systemctl status -l fairdata-download-generator
+systemctl status -l fairdata-download-server

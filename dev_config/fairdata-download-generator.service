@@ -1,0 +1,17 @@
+# This file is only used for local development
+
+[Unit]
+Description=Fairdata Download Generator
+After=network.target
+
+[Service]
+Type=forking
+User=download
+Group=download
+EnvironmentFile=/opt/fairdata-download-service/dev_config/fairdata-download-generator.env
+WorkingDirectory=/opt/fairdata-download-service
+RuntimeDirectory=fairdata-download-generator
+ExecStart=/bin/sh -c '/opt/fairdata-download-service/dev_config/fairdata-download-generator.sh'
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+#--------------------------------------------------------------------------------
+# This script is used to configure and manage a local development instance of
+# the download service. It should NOT be used in production.
+#--------------------------------------------------------------------------------
+
+SCRIPT="$(realpath $0)"
+UTILS=`dirname "$SCRIPT"`
+
+source $UTILS/init-dev-script.sh
+
+#--------------------------------------------------------------------------------
+
+PYTHON="/opt/fairdata/python3/bin/python"
+
+if [ ! -x $PYTHON ]; then
+    echo "$PYTHON does not exist!" >&2
+    exit 1
+fi
+
+rm -fr $ROOT/venv 2>/dev/null
+
+$PYTHON -m venv $ROOT/venv
+
+source $ROOT/venv/bin/activate
+
+pip install --upgrade pip
+pip install -r $ROOT/requirements.txt
+pip install -r $ROOT/requirements-dev.txt

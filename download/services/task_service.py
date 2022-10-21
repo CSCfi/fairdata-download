@@ -18,7 +18,7 @@ class NoActiveTasksFound(Exception):
             self.dataset = args[0]
 
     def __str__(self):
-        return ("No active file generation tasks was found for dataset "
+        return ("No active file generation tasks were found for dataset "
                 "'%s'" % self.dataset)
 
 class NoDatabaseRecordForPackageFound(Exception):

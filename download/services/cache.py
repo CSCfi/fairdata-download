@@ -105,13 +105,21 @@ def purge():
 
 
 def get_datasets_dir():
-    cache_dir = os.path.join(current_app.config['DOWNLOAD_CACHE_DIR'],
-                           'datasets')
+    cache_dir = os.path.join(current_app.config['DOWNLOAD_CACHE_DIR'], 'datasets')
 
     if not os.path.exists(cache_dir):
         os.makedirs(cache_dir)
 
     return cache_dir
+
+
+def get_mock_notifications_dir():
+    mock_notifications_dir = os.path.join(current_app.config['DOWNLOAD_CACHE_DIR'], 'mock_notifications')
+
+    if not os.path.exists(mock_notifications_dir):
+        os.makedirs(mock_notifications_dir)
+
+    return mock_notifications_dir
 
 
 cache_cli = AppGroup(

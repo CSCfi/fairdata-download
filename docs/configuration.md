@@ -1,5 +1,16 @@
 # Configuration
 
+Production configuration is handled via ansible playbooks maintained in a separate 
+repository.
+
+Configuration for local development is taken care of when installing
+the download service components as systemd services, as documented in
+[installation instructions](/docs/installation.md) If the script
+`dev_config/utils/initialize-service` is used, this guide is not relevant.
+
+The following guidance is for configuring the service in other environments, or for
+other purposes.
+
 ## Environment variables
 
 In order to run development server, some environment variables need to be

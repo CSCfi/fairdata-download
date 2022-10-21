@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+#--------------------------------------------------------------------------------
+# This script is used to configure and manage a local development instance of
+# the download service. It should NOT be used in production.
+#--------------------------------------------------------------------------------
+
+SCRIPT="$(realpath $0)"
+UTILS=`dirname "$SCRIPT"`
+
+source $UTILS/init-dev-script.sh
+
+#--------------------------------------------------------------------------------
+
+rabbitmqctl list_users
+rabbitmqctl list_permissions | expand -t 10
+rabbitmqctl list_permissions -p "$MQ_VHOST"| expand -t 10
+

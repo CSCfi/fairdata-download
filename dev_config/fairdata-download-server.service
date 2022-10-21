@@ -1,0 +1,21 @@
+# This file is only used for local development
+
+[Unit]
+Description=Fairdata Download Server
+Requires=fairdata-download-server.socket
+After=network.target
+
+[Service]
+Type=notify
+User=download
+Group=download
+EnvironmentFile=/opt/fairdata-download-service/dev_config/fairdata-download-server.env
+WorkingDirectory=/opt/fairdata-download-service
+ExecStart=/bin/sh -c '${GUNICORN_BIN} --config ${GUNICORN_CONF} download:flask_app'
+ExecReload=/bin/kill -s HUP ${MAINPID}
+KillMode=mixed
+TimeoutStopSec=5
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

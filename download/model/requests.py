@@ -10,8 +10,11 @@ class RequestsPostData(Schema):
 class SubscribePostData(Schema):
     dataset = fields.Str(required=True)
     scope = fields.List(fields.Str())
-    subscription_data = fields.Str(data_key='subscriptionData')
+    subscription_data = fields.Str(data_key='subscriptionData', required=True)
     notify_url = fields.Str(data_key='notifyURL', required=True)
+
+class MockNotifyPostData(Schema):
+    subscription_data = fields.Str(data_key='subscriptionData', required=True)
 
 class AuthorizePostData(Schema):
     dataset = fields.Str(required=True)

@@ -1,0 +1,13 @@
+# This file is only used for local development
+
+[Unit]
+Description=UNIX socket for Fairdata Download Server
+
+[Socket]
+ListenStream=/run/fairdata-download-server.sock
+SocketMode=0666
+SocketUser=download
+SocketGroup=download
+
+[Install]
+WantedBy=sockets.target

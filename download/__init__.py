@@ -17,11 +17,8 @@ logger = logging.getLogger(__name__)
 
 def create_flask_app():
     """"Application Factory for Download Service Flask application"""
-    app = Flask(__name__, instance_relative_config=True)
 
-    app.config.from_object('download.config')
-    if 'DOWNLOAD_SERVICE_SETTINGS' in os.environ:
-        app.config.from_envvar('DOWNLOAD_SERVICE_SETTINGS')
+    app = Flask(__name__, instance_relative_config=True)
 
     # Logging
     try:
@@ -30,6 +27,14 @@ def create_flask_app():
 
     except Exception as e:
         logger.error(e)
+
+    logger.info('INITIALIZING APP CONFIGURATION')
+
+    app.config.from_object('download.config')
+
+    if 'DOWNLOAD_SERVICE_SETTINGS' in os.environ:
+        logger.info("Loading DOWNLOAD_SERVICE_SETTINGS: %s" % os.environ['DOWNLOAD_SERVICE_SETTINGS'])
+        app.config.from_envvar('DOWNLOAD_SERVICE_SETTINGS')
 
     cache.init_app(app)
     db.init_app(app)

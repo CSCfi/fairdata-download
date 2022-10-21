@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+#--------------------------------------------------------------------------------
+# This script is used to configure and manage a local development instance of
+# the download service. It should NOT be used in production.
+#--------------------------------------------------------------------------------
+
+SCRIPT="$(realpath $0)"
+UTILS=`dirname "$SCRIPT"`
+
+source $UTILS/init-dev-script.sh
+
+#--------------------------------------------------------------------------------
+
+if [ "$MQ_HOST" = "" ]; then
+	echo "Missing config value for MQ_HOST" >&2
+	exit 1
+fi
+
+if [ "$MQ_VHOST" = "" ]; then
+	echo "Missing config value for MQ_VHOST" >&2
+	exit 1
+fi
+
+if [ "$MQ_USER" = "" ]; then
+	echo "Missing config value for MQ_USER" >&2
+	exit 1
+fi
+
+if [ "$MQ_PASS" = "" ]; then
+	echo "Missing config value for MQ_PASS" >&2
+	exit 1
+fi
+
+rabbitmqctl delete_user "$MQ_USER"
+rabbitmqctl delete_vhost "$MQ_VHOST"
+

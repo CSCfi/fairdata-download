@@ -78,6 +78,7 @@ def get_dataset(dataset):
     :raises ConnectionError: Application is unable to connect to Metax API
     """
     try:
+        current_app.logger.debug("Retrieving details for dataset %s" % dataset)
         metax_response = get_metax('datasets/%s' % dataset)
 
         if metax_response.status_code == 404:
@@ -90,6 +91,7 @@ def get_dataset(dataset):
                 % metax_response.status_code)
             raise UnexpectedStatusCode
 
+        current_app.logger.debug("Successfully retrieved details for dataset %s" % dataset)
         return metax_response.json()
     except ConnectionError:
         raise
@@ -101,6 +103,7 @@ def get_dataset_files(dataset):
     :raises ConnectionError: Application is unable to connect to Metax API
     """
     try:
+        current_app.logger.debug("Retrieving files for dataset %s" % dataset)
         metax_response = get_metax('datasets/%s/files' % dataset)
 
         if metax_response.status_code != 200:
@@ -109,6 +112,7 @@ def get_dataset_files(dataset):
                 % metax_response.status_code)
             raise UnexpectedStatusCode
 
+        current_app.logger.debug("Successfully retrieved files for dataset %s" % dataset)
         return metax_response.json()
     except ConnectionError:
         raise

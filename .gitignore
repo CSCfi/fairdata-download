@@ -1,4 +1,25 @@
-venv/
+.DS_Store
+._.DS_Store
+.idea
+.eclipse
+.vscode
+*.code-workspace
+*~
+*.log
+*.pyc
+*.dump
+*.swp
+TODO
+tags
+project.sublime-project
+
+/tmp
+/venv
+/data
+/log
+
+/dev_config/settings.cfg
+
 .env
 *.db
 
@@ -18,8 +39,3 @@ dist/
 build/
 *.egg-info/
 
-.idea/
-.vscode/
-*.code-workspace
-
-*.swp
