@@ -20,7 +20,7 @@ def get_health():
     Internally available end point for health monitoring.
     ---
     tags:
-      - Health Monitoring
+      - Internal
     produces:
       - application/json
     responses:

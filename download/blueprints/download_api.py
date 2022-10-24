@@ -38,40 +38,37 @@ download_api = Blueprint('download-api', __name__)
 
 @download_api.route('/requests', methods=['GET'])
 def get_request():
-    """
-    Internally available end point for file generation request data.
+    """Internally available end point for file generation request data.
 
-    Returns JSON encoded details regarding zero or more downloadable
-    dataset package files, and/or partial subset package files, which exist
-    in the cache or are in the process of being generated.
+    Returns JSON encoded details regarding zero or more downloadable dataset package files, and/or partial subset package files, which exist in the cache or are in the process of being generated.
     ---
     tags:
-      - Package Generation
+      - Internal
     definitions:
       - schema:
           id: Dataset ID
           summary: Generation Task
-          description: ID of the dataset whose file or package is to be downloaded
+          description: ID of the dataset for which the file or package is to be downloaded
           properties:
             dataset:
-              type: string
               description: ID of the dataset
-              example: "1"
+              type: string
+              example: "63da6f69-f9ea-4bb7-be5d-51fe9dae3440"
       - schema:
           id: Generation Task
           description: Task to generate a package to be downloaded
           properties:
             initiated:
-              type: datetime
               description: Timestamp of when the task was created
+              type: datetime
               example: "2021-02-25T08:00:04+00:00"
             generated:
-              type: datetime
               description: Timestamp of when the package was generated
+              type: datetime
               example: "2021-02-25T08:08:04+00:00"
             status:
-              type: string
               description: Status of the task
+              type: string
               example: "SUCCESS"
               enum:
                 - PENDING
@@ -86,22 +83,22 @@ def get_request():
               type: array
               items:
                 type: string
-                example: "/project_x_FROZEN/Experiment_X/file_name_1"
+                example: "/testdata/Experiment_1/baseline"
       - schema:
           id: Package
           description: Generated package available to be downloaded
           properties:
             package:
+              description: File name of the generated package available for download
               type: string
-              description: Filename of the package
-              example: "1_s8jhbj0j.zip"
+              example: "63da6f69-f9ea-4bb7-be5d-51fe9dae3440_resdyamg.zip"
             checksum:
-              type: string
               description: SHA256 checksum of the package file
+              type: string
               example: "sha256:8739c76e681f900923b900c9df0ef75cf421d39cabb54650c4b9ad19b6a76d85"
             size:
-              type: number
               description: Size of the generated package in bytes
+              type: number
               example: "1526474"
       - schema:
           id: Partial Generation Tasks
@@ -119,11 +116,9 @@ def get_request():
     parameters:
       - name: dataset
         in: query
-        description: ID of the dataset whose package generation requests are
-                     returned
-        schema:
-          type: string
-          example: "1"
+        description: ID of the dataset for which the package generation requests are to be returned
+        type: string
+        example: "63da6f69-f9ea-4bb7-be5d-51fe9dae3440"
         required: true
     responses:
       200:
@@ -137,8 +132,7 @@ def get_request():
       404:
         description: No active requests for given dataset were found
       500:
-        description: Unable to connect to Metax API or an unexpected status
-                     code received
+        description: Unable to connect to Metax API or an unexpected status code received
     """
 
     current_app.logger.debug("GET /requests: %s" % json.dumps(request.args))
@@ -210,12 +204,12 @@ def get_request():
 
 @download_api.route('/requests', methods=['POST'])
 def post_request():
-    """Internally available end point for initiating file generation.
+    """Internally available end point for initiating dataset package file generation.
 
-    Creates a new file generation request if no such already exists.
+    Creates a new dataset package file generation request if no such request already exists.
     ---
     tags:
-      - Package Generation
+      - Internal
     definitions:
       - schema:
           id: Generation Task Created
@@ -231,32 +225,28 @@ def post_request():
     parameters:
       - name: dataset
         in: body
-        description: ID of the dataset whose package generation requests are
-                     returned
-        schema:
-          allOf:
-            - $ref: "#/definitions/Dataset ID"
+        description: ID of the dataset for which the package generation request is to be initiated
+        type: string
+        example: "63da6f69-f9ea-4bb7-be5d-51fe9dae3440"
         required: true
       - name: scope
         in: body
-        description: List of one or more pathnames defining the scope of a partial dataset package
-        schema:
-          allOf:
-            - $ref: "#/definitions/Generation Task Scope"
+        description: List of one or more relative pathnames defining the scope of a partial dataset package
+        type: string
+        example: [ "/testdata/Experiment_1/baseline" ]
         required: false
     responses:
       200:
-        description: Information about the matching package generation request
+        description: Information about the initiated package generation request
         schema:
           allOf:
             - $ref: "#/definitions/Dataset ID"
             - $ref: "#/definitions/Generation Task Created"
             - $ref: "#/definitions/Partial Generation Tasks"
       409:
-        description: No files matching specified scope was found
+        description: No pathname in the dataset matching a specified scope was found
       500:
-        description: Unable to connect to Metax API or an unexpected status
-                     code received
+        description: Unable to connect to Metax API or an unexpected status code received
     """
 
     current_app.logger.debug("POST /requests: %s" % json.dumps(request.get_json()))
@@ -355,18 +345,18 @@ def post_subscribe():
     Creates a new file subscription record for an ongoing package generation task.
     ---
     tags:
-      - Package Generation
+      - Internal
     definitions:
       - schema:
           id: Subscription Data
-          description: Required base64 encoded data field to be echoed back once the notification is sent
+          description: Base64 encoded data to be returned in the body of the notification sent to the specified notification URL
           properties:
             subscriptionData:
               type: string
               example: "637nNUwp+oiRkQgNfPit"
       - schema:
           id: Notify URL
-          description: URL where the package generation notification will be posted.
+          description: URL where the package generation notification will be posted
           properties:
             notifyURL:
               type: string
@@ -376,15 +366,17 @@ def post_subscribe():
     produces:
       - application/json
     parameters:
-      - name: body
+      - name: notifyURL
         in: body
-        description: Information about the task to be subscribed to and some subscription data
-        schema:
-          allOf:
-            - $ref: "#/definitions/Dataset ID"
-            - $ref: "#/definitions/Generation Task Scope"
-            - $ref: "#/definitions/Subscription Data"
-            - $ref: "#/definitions/Notify URL"
+        description: URL where the package generation notification will be posted
+        type: string
+        example: "https://example.com/notify"
+        required: true
+      - name: subscriptionData
+        in: body
+        description: Base64 encoded data to be returned in the body of the notification sent to the specified notification URL
+        type: string
+        example: "637nNUwp+oiRkQgNfPit"
         required: true
     responses:
       201:
@@ -400,8 +392,7 @@ def post_subscribe():
       409:
         description: No matching ongoing package generation task was found
       500:
-        description: Unable to connect to Metax API or an unexpected status
-                     code received
+        description: Unable to connect to Metax API or an unexpected status code received
     """
 
     current_app.logger.debug("POST /subscribe: %s" % json.dumps(request.get_json()))
@@ -447,15 +438,16 @@ def post_subscribe():
 
 @download_api.route('/mock_notify', methods=['POST'])
 def post_mock_notify():
-    """Internally available end point for mock reception of subscription notification once
-       dataset package has been successfully generated. Used by automated testing.
+    """Internally available end point for mock reception of subscription notification once dataset package has been successfully generated. Used by automated testing.
 
     Creates a temporary file located in the download service cache with a filename corresponding to the base64 encoded subscription data.
     ---
+    tags:
+      - Testing
     definitions:
       - schema:
           id: Mock Subscription Notification
-          description: Required base64 encoded data field to be echoed back once the notification is sent
+          description: Base64 encoded data to be returned in the body of the notification sent to the specified notification URL
           properties:
             subscriptionData:
               type: string
@@ -467,10 +459,9 @@ def post_mock_notify():
     parameters:
       - name: subscriptionData
         in: body
-        description: Information about the task to be subscribed to and some subscription data
-        schema:
-          allOf:
-            - $ref: "#/definitions/Mock Subscription Notification"
+        description: Base64 encoded data to be returned in the body of the notification sent to the specified notification URL
+        type: string
+        example: "637nNUwp+oiRkQgNfPit"
         required: true
     responses:
       200:
@@ -481,8 +472,7 @@ def post_mock_notify():
       400:
         description: Invalid request was received
       500:
-        description: Unable to connect to Metax API or an unexpected status
-                     code received
+        description: Unable to connect to Metax API or an unexpected status code received
     """
 
     current_app.logger.debug("POST /mock_notify: %s" % json.dumps(request.get_json()))
@@ -513,41 +503,15 @@ def post_mock_notify():
         'subscriptionData': subscription_data,
     }), 200
 
-
 @download_api.route('/authorize', methods=['POST'])
 def authorize():
     """Internally available end point for authorizing requesting clients.
 
-    Requests a time-limited single-use token for download of a specific
-    dataset package or file.
+    Requests a time-limited single-use token for download of a specific dataset package or file.
     ---
     tags:
-      - File or Package Download
+      - Internal
     definitions:
-      - schema:
-          id: Package Authorize Request
-          description: Request autorization token for downloading a generated package
-          properties:
-            dataset:
-              type: string
-              description: ID of the dataset
-              example: "63da6f69-f9ea-4bb7-be5d-51fe9dae3440"
-            package:
-              type: string
-              description: File name of the generated package available for download
-              example: "63da6f69-f9ea-4bb7-be5d-51fe9dae3440_resdyamg.zip"
-      - schema:
-          id: File Authorize Request
-          description: Request autorization token for downloading a dataset file
-          properties:
-            dataset:
-              type: string
-              description: ID of the dataset
-              example: "63da6f69-f9ea-4bb7-be5d-51fe9dae3440"
-            file:
-              type: string
-              example: "/testdata/Experiment_1/test_03.dat"
-              description: Dataset file paths as described in Metax
       - schema:
           id: Authorize Response
           description: Response including authorization token for downloading a dataset file or package
@@ -564,23 +528,20 @@ def authorize():
       - name: dataset
         in: body
         description: ID of the dataset
-        schema:
-          allOf:
-            - $ref: "#/definitions/Package Authorize Request"
+        type: string
+        example: "63da6f69-f9ea-4bb7-be5d-51fe9dae3440"
         required: true
       - name: package
         in: body
-        description: Name of the dataset package to be downloaded
-        schema:
-          allOf:
-            - $ref: "#/definitions/Package Authorize Request"
+        description: Name of the dataset package file to be downloaded (either a package or filename must be specified)
+        type: string
+        example: "63da6f69-f9ea-4bb7-be5d-51fe9dae3440_resdyamg.zip"
         required: false
-      - name: filename
+      - name: file
         in: body
-        description: Name of the individual file to be downloaded
-        schema:
-          allOf:
-            - $ref: "#/definitions/File Authorize Request"
+        description: Name of the individual file to be downloaded (either a package or filename must be specified)
+        type: string
+        example: "/testdata/Experiment_1/test_03.dat"
         required: false
     responses:
       200:
@@ -589,14 +550,11 @@ def authorize():
           allOf:
             - $ref: "#/definitions/Authorize Response"
       404:
-        description: No dataset file or active generated package matching
-                     request was found
+        description: No dataset file or active generated package matching request was found
       409:
-        description: Dataset was modified since the requested package was
-                     generated
+        description: Dataset was modified since the requested package was generated
       500:
-        description: Unable to connect to Metax API or an unexpected status
-                     code received
+        description: Unable to connect to Metax API or an unexpected status code received
     """
 
     current_app.logger.debug("POST /authorize: %s" % json.dumps(request.get_json()))
@@ -610,7 +568,9 @@ def authorize():
     package = request_data.get('package')
 
     if package is None:
-        filename = request_data.get('filename') or abort(400)
+        filename = request_data.get('filename') 
+        if filename is None:
+            abort(400, 'Missing file parameter')
         try:
             project_identifier = get_matching_project_identifier_from_metax(
                 dataset,
@@ -667,14 +627,12 @@ def authorize():
 
 @download_api.route('/download', methods=['GET'])
 def download():
-    """Publically accessible with valid single-use token.
+    """Publically accessible endpoint for file or package download with a valid single-use token.
 
-    Allows downloading files with valid tokens, generated with authorize
-    requests. Trusted access without token to certain internal services (e.g.
-    PAS).
+    Allows downloading of an individual dataset file or dataset package with a valid authorization token, from which the package or filename to be downloaded will be obtained.
     ---
     tags:
-      - File or Package Download
+      - Public
     consumes:
       - application/json
     produces:
@@ -682,40 +640,27 @@ def download():
     parameters:
       - name: dataset
         in: query
-        description: Dataset whose file or package is to be downloaded
-        schema:
-          type: string
-          example: "1"
+        description: ID of the dataset for which the file or package is to be downloaded
+        type: string
+        example: "63da6f69-f9ea-4bb7-be5d-51fe9dae3440"
         required: true
-      - name: package
-        in: query
-        description: Package to be downloaded
-        schema:
-          type: string
-      - name: file
-        in: query
-        description: File to be downloaded
-        schema:
-          type: string
-          example: "/project_x_FROZEN/Experiment_X/file_name_1"
       - name: token
         in: query
-        description: Token used to authorize the download
-        schema:
-          type: string
+        description: Single-use JWT encoded token used to authorize the download of a specific file or package (the token can also be provided using a Bearer authentication header)
+        type: string
+        example: "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE2MTQzMjY5ODAsImRhdGFzZXQiOiIxIiwiZmlsZSI6Ii9wcm9qZWN0X3hfRlJPWkVOL0V4cGVyaW1lbnRfWC9maWxlX25hbWVfMSIsInByb2plY3QiOiJwcm9qZWN0X3gifQ.niz50oRduP6pRtjrpLUJzIF48cr0-15IbxsFXjg7emE"
+        required: true
     responses:
       200:
-        description: File or package to be downloaded with the provided token
+        description: File or package to be downloaded
       401:
         description: Unauthorized to download file due to unacceptable token
       404:
-        description: Could not find requested package from database
+        description: Could not find the requested file or package
       409:
-        description: Dataset was modified since the requested package was
-                     generated
+        description: Dataset was modified since the requested package was generated and the package is deemed invalid
       500:
-        description: Unable to connect to Metax API or an unexpected status
-                     code received
+        description: Unable to connect to Metax API or an unexpected status code received
     """
 
     current_app.logger.debug("GET /download: %s" % json.dumps(request.args))
@@ -756,8 +701,7 @@ def download():
             current_app.config['JWT_SECRET'],
             algorithms=[current_app.config['JWT_ALGORITHM']])
     except ExpiredSignatureError:
-        current_app.logger.info("Received download request with expired "
-                                "token.")
+        current_app.logger.info("Received download request with expired token.")
         abort(401)
     except DecodeError:
         current_app.logger.info('Unable to decode offered token.')
@@ -818,6 +762,7 @@ def download():
     }
     return Response(stream_with_context(stream_response()),
                     headers=response_headers)
+
 
 @download_api.errorhandler(400)
 def bad_request(error):

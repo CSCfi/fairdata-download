@@ -14,3 +14,10 @@ source $UTILS/init-dev-script.sh
 cd $ROOT
 source venv/bin/activate
 coverage run -m pytest
+
+if [ $? -eq 0 ]; then
+    if [ -f /var/ida/tests/run-tests ]; then
+        cd /var/ida
+        /var/ida/tests/run-tests tests.download
+    fi
+fi

@@ -496,10 +496,7 @@ class TestGetDownload:
                                                     success_task,
                                                     valid_auth_token_for_file):
         client.environ_base['HTTP_AUTHORIZATION'] = 'Bearer ' + valid_auth_token_for_file
-        query_string = {
-            'dataset': success_task['dataset_id'],
-            'file': '/test1/file1.txt'
-        }
+        query_string = { 'dataset': success_task['dataset_id'] }
         response = client.get(self.endpoint, query_string=query_string)
         assert response.status_code == 200
 

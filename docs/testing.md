@@ -1,12 +1,17 @@
 # Testing
 
-## Unit Tests
-
-Unit tests are easily executed in the local development environment by running the command
+Automated tests are easily executed in the local development environment by running the command
 
 ```
 dev_config/utils/run-tests
 ```
+
+This command will execute all unit tests, and if the unit tests pass and IDA is installed on 
+the host, the behavioral tests for the download service will also be executed in the IDA
+environment.
+
+
+## Unit Tests
 
 Unit tests can be run manually with coverage:
 
