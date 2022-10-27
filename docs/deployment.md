@@ -19,24 +19,27 @@ explicitly running the server and generator components using Flask or Celery dir
 
 To initialize the python3 virtual environment, execute the script
 ```
-utils/initialize-venv
+dev_config/utils/initialize-venv
 ```
 
-The download service server component can be started with Flask command:
+The download service server component can be started using the script
 
 ```
-source venv/bin/activate
-flask run
+dev_config/fairdata-download-server.sh
 ```
 
-The download service package generator component can be started with Celery command:
+The download service package generator component can be started using the script
 
 ```
-source venv/bin/activate
-celery -A download.tasks worker
+dev_config/fairdata-download-generator.sh
 ```
 
-## Deployment with Docker Swarm
+## Deployment of basic instance with Docker Swarm
+
+Note that the download service is incorporated into the IDA service Docker environment, which 
+should be the Docker environment used for development of the download service itself. The following
+instructions are for deploying a basic, static instance of the service for use in a Docker swarm
+with other services which depend on having a running download service.
 
 Ensure that Docker Swarm is initialized, and finally deploy the stack with
 template provided in the repository:

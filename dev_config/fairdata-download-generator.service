@@ -8,10 +8,10 @@ After=network.target
 Type=forking
 User=download
 Group=download
-EnvironmentFile=/opt/fairdata-download-service/dev_config/fairdata-download-generator.env
-WorkingDirectory=/opt/fairdata-download-service
+EnvironmentFile=/opt/fairdata/fairdata-download-service/dev_config/fairdata-download-generator.env
+WorkingDirectory=/opt/fairdata/fairdata-download-service
 RuntimeDirectory=fairdata-download-generator
-ExecStart=/bin/sh -c '/opt/fairdata-download-service/dev_config/fairdata-download-generator.sh'
+ExecStart=/bin/sh -c '/opt/fairdata/fairdata-download-service/dev_config/fairdata-download-generator.sh'
 
 [Install]
 WantedBy=multi-user.target

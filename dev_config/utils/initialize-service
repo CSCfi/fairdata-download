@@ -27,17 +27,27 @@ declare -a FILES=(
     "/etc/systemd/system/fairdata-download-server.service"
     "/etc/systemd/system/fairdata-download-generator.service"
     "/etc/systemd/system/fairdata-download-server.socket"
+    "$ROOT/data/ida-data"
 )
 
+for LINK in "${FILES[@]}"; do
+    if [ -L $LINK ]; then
+        echo "Removing link $LINK"
+        rm $LINK
+    fi
+done
+
 for FILE in "${FILES[@]}"; do
-    if [ -f $FILE -o -L $FILE ]; then
-        echo "Removing $FILE"
+    if [ -f $FILE ]; then
+        echo "Removing file $FILE"
         rm $FILE
     fi
 done
 
 declare -a DIRS=(
-    "$ROOT/data"
+    "$ROOT/data/db"
+    "$ROOT/data/download-cache"
+    "$ROOT/data/ida-data"
     "$ROOT/venv"
     "/var/log/fairdata-download-service"
     "/run/fairdata-download-service"
@@ -46,24 +56,26 @@ declare -a DIRS=(
 
 for DIR in "${DIRS[@]}"; do
     if [ -d $DIR ]; then
-        echo "Removing $DIR"
+        echo "Removing directory $DIR"
         rm -fr $DIR
     fi
 done
 
 #--------------------------------------------------------------------------------
 
+useradd download || true
+
 $UTILS/initialize-venv
 $UTILS/fix-permissions
 
 mkdir -p  /var/log/fairdata-download-service
-chmod 777 /var/log/fairdata-download-service
+chown download:download /var/log/fairdata-download-service
 
 mkdir -p  $ROOT/data/download-cache
-chmod 777 $ROOT/data/download-cache
+chown download:download $ROOT/data/download-cache
 
 mkdir -p  $ROOT/data/db
-chmod 777 $ROOT/data/db
+chown download:download $ROOT/data/db
 
 # Ideally the dev instance of the download service is running on the same host as a dev IDA instance,
 # and we will access the IDA data storage root, but if not, we'll simply initialize an empty directory
@@ -73,7 +85,7 @@ if [ -d /mnt/storage_vol01/ida ]; then
     ln -s /mnt/storage_vol01/ida $ROOT/data/ida-data
 else
     mkdir -p  $ROOT/data/ida-data
-    chmod 777 $ROOT/data/ida-data
+    chown download:download $ROOT/data/ida-data
 fi
 
 ln -s $DEV/fairdata-download-service.nginx.conf /etc/nginx/conf.d/fairdata-download-service.nginx.conf

@@ -15,17 +15,12 @@ if [ "$DEBUG" = "true" ]; then
     echo "DOWNLOAD_SERVICE_SETTINGS: $DOWNLOAD_SERVICE_SETTINGS"
     echo "CELERY_BIN:                $CELERY_BIN"
     echo "CELERY_APP:                $CELERY_APP"
-    echo "CELERYD_NODES:             $CELERYD_NODES"
-    echo "CELERYD_PID_FILE:          $CELERYD_PID_FILE"
     echo "CELERYD_LOG_FILE:          $CELERYD_LOG_FILE"
     echo "CELERYD_LOG_LEVEL:         $CELERYD_LOG_LEVEL"
-    echo "CELERYD_OPTS:              $CELERYD_OPTS"
 fi
 
 cd /opt/fairdata/fairdata-download-service
 
 source venv/bin/activate
 
-${CELERY_BIN} multi start ${CELERYD_NODES} \
-    -A ${CELERY_APP} --pidfile=${CELERYD_PID_FILE} \
-    --logfile=${CELERYD_LOG_FILE} --loglevel=${CELERYD_LOG_LEVEL} ${CELERYD_OPTS}
+${CELERY_BIN} worker -A ${CELERY_APP} --logfile=${CELERYD_LOG_FILE} --loglevel=${CELERYD_LOG_LEVEL}

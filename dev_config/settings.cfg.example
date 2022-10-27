@@ -10,11 +10,11 @@
 ENVIRONMENT='DEV'
 
 # Volumes
-DOWNLOAD_CACHE_DIR='/opt/fairdata-download-service/data/download-cache'
-IDA_DATA_ROOT='/opt/fairdata-download-service/data/ida-data'
+DOWNLOAD_CACHE_DIR='/opt/fairdata/fairdata-download-service/data/download-cache'
+IDA_DATA_ROOT='/opt/fairdata/fairdata-download-service/data/ida-data'
 
 # Database
-DATABASE_FILE='/opt/fairdata-download-service/data/db/download.db'
+DATABASE_FILE='/opt/fairdata/fairdata-download-service/data/db/download.db'
 
 # Cache
 CACHE_PURGE_THRESHOLD=1073741824 # 1GB

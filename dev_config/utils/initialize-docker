@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+#--------------------------------------------------------------------------------
+# This script is used to configure and manage a development instance of
+# the download service running in an IDA Docker container. It is not related
+# to the simple static Docker container defined in the root of this repository.
+# It should NOT be used in production.
+#--------------------------------------------------------------------------------
+
+SCRIPT="$(realpath $0)"
+UTILS=`dirname "$SCRIPT"`
+
+source $UTILS/init-dev-script.sh
+
+#--------------------------------------------------------------------------------
+
+cd $ROOT
+
+declare -a LINKS=(
+    "$ROOT/data/ida-data"
+)
+
+for LINK in "${LINKS[@]}"; do
+    if [ -L $LINK ]; then
+        echo "Removing link $LINK"
+        rm $LINK
+    fi
+done
+
+declare -a DIRS=(
+    "$ROOT/data/download-cache"
+    "$ROOT/data/db"
+    "/var/log/fairdata-download-service"
+    "/run/fairdata-download-service"
+    "/run/fairdata-download-generator"
+)
+
+for DIR in "${DIRS[@]}"; do
+    if [ -d $DIR ]; then
+        echo "Removing directory $DIR"
+        rm -fr $DIR
+    fi
+done
+
+#--------------------------------------------------------------------------------
+
+useradd download || true
+usermod -a -G www-data download
+
+$UTILS/fix-permissions
+
+mkdir -p /var/log/fairdata-download-service
+chown download:download  /var/log/fairdata-download-service
+
+mkdir -p /run/fairdata-download-service
+chown download:download  /run/fairdata-download-service
+
+mkdir -p /run/fairdata-download-generator
+chown download:download  /run/fairdata-download-generator
+
+mkdir -p  $ROOT/data/download-cache
+chown download:download  $ROOT/data/download-cache
+
+mkdir -p  $ROOT/data/db
+chown download:download  $ROOT/data/db
+
+ln -s /mnt/storage_vol01/ida $ROOT/data/ida-data

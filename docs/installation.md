@@ -48,14 +48,17 @@ poetry export --without-hashes --dev -o requirements-dev.txt
 
 ## Docker Development
 
-The repository includes Dockerfiles for server and generator processes for development.
+Note that the download service is incorporated into the IDA service Docker environment, which 
+should be the Docker environment used for development of the download service itself. The following
+instructions are for deploying a basic, static instance of the service for use in a Docker swarm
+with other services which depend on having a running download service.
 
 The Docker images provided in this repository are not really suitable for development of the
 download service itself, but are provided for those developing other services in a Docker swarm
 environment (e.g. Etsin) which require a running instance of the download service for
 integration testing.
 
-The Docker images can be built by executing:
+The basic Docker images can be built by executing:
 
 ```
 docker build . --no-cache -t fairdata-docker.artifactory.ci.csc.fi/fairdata-download-server

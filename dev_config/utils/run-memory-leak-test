@@ -13,7 +13,7 @@ source $UTILS/init-dev-script.sh
 
 while true; do
     date
-    curl -s -k "https://localhost:4430/download?dataset=foo&file=bar" >/dev/null
+    curl -s -k "https://localhost:4431/download?dataset=foo&file=bar" >/dev/null
     ps -eo size,pid,user,command --sort -size | grep fairdata-download | \
         awk '{ hr=$1/1024 ; printf("%13.2f Mb ",hr) } { for ( x=4 ; x<=NF ; x++) { printf("%s ",$x) } print "" }' | \
         cut -d "" -f2 | grep -v grep | sed -e 's/--workers.*$//' 

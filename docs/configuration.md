@@ -63,6 +63,14 @@ TEST_DATASET_FILE = /same_name_test/test_doc_1
 
 ## Docker Swarm
 
+Note that the download service is incorporated into the IDA service Docker environment, which 
+should be the Docker environment used for development of the download service itself. The following
+instructions are for deploying a basic, static instance of the service for use in a Docker swarm
+with other services which depend on having a running download service.
+
+The files used for Docker configuration are managed in the download/config subdirectory of the
+fairdata-secrets repository.
+
 Docker Swarm configurations can be created from existing configuration files.
 Use the following configuration names with the templates included in this
 repository.
