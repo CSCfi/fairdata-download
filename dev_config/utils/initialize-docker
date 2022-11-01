@@ -42,9 +42,18 @@ for DIR in "${DIRS[@]}"; do
 done
 
 #--------------------------------------------------------------------------------
+# Determine the apache user
+
+if [ -d /etc/httpd ]; then
+    HTTPD_USER="apache"
+else
+    HTTPD_USER="www-data"
+fi
+
+#--------------------------------------------------------------------------------
 
 useradd download || true
-usermod -a -G www-data download
+usermod -a -G $HTTPD_USER download
 
 $UTILS/fix-permissions
 
