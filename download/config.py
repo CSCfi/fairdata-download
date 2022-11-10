@@ -49,3 +49,6 @@ JWT_TTL=4320
 METAX_URL='https://metax.fd-dev.csc.fi/'
 METAX_USER='download'
 METAX_PASS='download'
+
+# Trusted services
+TRUSTED_SERVICE_TOKEN='secret'

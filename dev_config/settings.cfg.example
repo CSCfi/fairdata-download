@@ -9,6 +9,9 @@
 
 ENVIRONMENT='DEV'
 
+# Trusted services
+TRUSTED_SERVICE_TOKEN="DEFINE_ME"
+
 # Volumes
 DOWNLOAD_CACHE_DIR='/opt/fairdata/fairdata-download-service/data/download-cache'
 IDA_DATA_ROOT='/opt/fairdata/fairdata-download-service/data/ida-data'

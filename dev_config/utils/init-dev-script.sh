@@ -15,10 +15,12 @@ UTILS=`dirname "$SCRIPT"`
 DEV=`dirname "$UTILS"`
 ROOT=`dirname "$DEV"`
 
-DOWNLOAD_SERVICE_SETTINGS="$DEV/settings.cfg"
+if [ -z "$DOWNLOAD_SERVICE_SETTINGS" ]; then
+    DOWNLOAD_SERVICE_SETTINGS="$DEV/settings.cfg"
+fi
 
 if [ ! -f "$DOWNLOAD_SERVICE_SETTINGS" ]; then
-    echo "Could not find environment variable configuration file $DOWNLOAD_SERVICE_SETTINGS" >&2
+    echo "Could not find configuration file $DOWNLOAD_SERVICE_SETTINGS" >&2
     exit 1
 fi
 
@@ -43,3 +45,6 @@ if [ "$DEBUG" = "true" ]; then
     echo "ROOT:        $ROOT"
     echo "UTILS:       $UTILS"
 fi
+
+export DOWNLOAD_SERVICE_SETTINGS
+export TRUSTED_SERVICE_TOKEN

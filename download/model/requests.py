@@ -22,7 +22,4 @@ class AuthorizePostData(Schema):
     filename = fields.Str(data_key='file')
 
 class DownloadQuerySchema(Schema):
-    dataset = fields.Str(required=True)
-    token = fields.Str()
-    package = fields.Str()
-    filename = fields.Str(data_key='file')
+    token = fields.Str(required=True)

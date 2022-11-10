@@ -10,8 +10,7 @@ from datetime import datetime, timedelta
 from marshmallow import ValidationError
 from os import path
 
-from flask import Blueprint, Response, abort, current_app, jsonify, request, \
-                  stream_with_context
+from flask import Blueprint, Response, abort, current_app, jsonify, request, stream_with_context
 from jwt import decode, encode, ExpiredSignatureError
 from jwt.exceptions import DecodeError
 from requests.exceptions import ConnectionError
@@ -29,7 +28,7 @@ from ..services.metax import get_dataset_modified_from_metax, \
                              get_matching_dataset_files_from_metax, \
                              DatasetNotFound, UnexpectedStatusCode, \
                              MissingFieldsInResponse, NoMatchingFilesFound
-from ..utils import convert_utc_timestamp, format_datetime, ida_service_is_offline
+from ..utils import convert_utc_timestamp, format_datetime, ida_service_is_offline, authenticate_trusted_service
 from ..model.requests import AuthorizePostData, DownloadQuerySchema, \
                              RequestsPostData, RequestsQuerySchema, SubscribePostData, \
                              MockNotifyPostData
@@ -129,6 +128,8 @@ def get_request():
             - $ref: "#/definitions/Generation Task"
             - $ref: "#/definitions/Package"
             - $ref: "#/definitions/Partial Generation Tasks"
+      401:
+        description: Unauthorized request was received
       404:
         description: No active requests for given dataset were found
       500:
@@ -136,6 +137,12 @@ def get_request():
     """
 
     current_app.logger.debug("GET /requests: %s" % json.dumps(request.args))
+
+    # Authenticate the trusted service making the request
+    try:
+        authenticate_trusted_service(current_app, request)
+    except PermissionError as err:
+        abort(401, str(err))
 
     # Validate request
     try:
@@ -243,6 +250,8 @@ def post_request():
             - $ref: "#/definitions/Dataset ID"
             - $ref: "#/definitions/Generation Task Created"
             - $ref: "#/definitions/Partial Generation Tasks"
+      401:
+        description: Unauthorized request was received
       409:
         description: No pathname in the dataset matching a specified scope was found
       500:
@@ -251,6 +260,13 @@ def post_request():
 
     current_app.logger.debug("POST /requests: %s" % json.dumps(request.get_json()))
 
+    # Authenticate the trusted service making the request
+    try:
+        authenticate_trusted_service(current_app, request)
+    except PermissionError as err:
+        abort(401, str(err))
+
+    # Validate request
     try:
         request_data = RequestsPostData().load(request.get_json())
     except ValidationError as err:
@@ -389,6 +405,8 @@ def post_subscribe():
             - $ref: "#/definitions/Notify URL"
       400:
         description: Invalid request was received
+      401:
+        description: Unauthorized request was received
       409:
         description: No matching ongoing package generation task was found
       500:
@@ -396,6 +414,12 @@ def post_subscribe():
     """
 
     current_app.logger.debug("POST /subscribe: %s" % json.dumps(request.get_json()))
+
+    # Authenticate the trusted service making the request
+    try:
+        authenticate_trusted_service(current_app, request)
+    except PermissionError as err:
+        abort(401, str(err))
 
     # Validate request
     try:
@@ -549,6 +573,8 @@ def authorize():
         schema:
           allOf:
             - $ref: "#/definitions/Authorize Response"
+      401:
+        description: Unauthorized request was received
       404:
         description: No dataset file or active generated package matching request was found
       409:
@@ -559,6 +585,13 @@ def authorize():
 
     current_app.logger.debug("POST /authorize: %s" % json.dumps(request.get_json()))
 
+    # Authenticate the trusted service making the request
+    try:
+        authenticate_trusted_service(current_app, request)
+    except PermissionError as err:
+        abort(401, str(err))
+
+    # Validate request
     try:
         request_data = AuthorizePostData().load(request.get_json())
     except ValidationError as err:
@@ -638,15 +671,9 @@ def download():
     produces:
       - application/octet-stream
     parameters:
-      - name: dataset
-        in: query
-        description: ID of the dataset for which the file or package is to be downloaded
-        type: string
-        example: "63da6f69-f9ea-4bb7-be5d-51fe9dae3440"
-        required: true
       - name: token
         in: query
-        description: Single-use JWT encoded token used to authorize the download of a specific file or package (the token can also be provided using a Bearer authentication header)
+        description: Single-use JWT encoded token used to authorize the download of a specific file or package. The token contents will specify the project, dataset, and package or file to be downloaded.
         type: string
         example: "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE2MTQzMjY5ODAsImRhdGFzZXQiOiIxIiwiZmlsZSI6Ii9wcm9qZWN0X3hfRlJPWkVOL0V4cGVyaW1lbnRfWC9maWxlX25hbWVfMSIsInByb2plY3QiOiJwcm9qZWN0X3gifQ.niz50oRduP6pRtjrpLUJzIF48cr0-15IbxsFXjg7emE"
         required: true
@@ -672,18 +699,6 @@ def download():
 
     # Read auth token from request parameters
     auth_token = request_data.get('token')
-
-    if auth_token is None:
-        # Parse authorization header
-        auth_header = request.headers.get('Authorization')
-        if auth_header is None:
-            abort(401)
-
-        [auth_method, auth_token] = auth_header.split(' ')
-        if auth_method != 'Bearer':
-            current_app.logger.info(
-                "Received invalid autorization method '%s'" % auth_method)
-            abort(401)
 
     if current_app.config['ALWAYS_RUN_HOUSEKEEPING_IN_DOWNLOAD_ENDPOINT'] is True:
         housekeep_cache()
@@ -724,6 +739,12 @@ def download():
             'files',
             project_identifier,
             ) + filepath
+
+        # TODO: Add missing tests whether the file belongs to the specified dataset or the dataset has been
+        #       modified (invalidated) since the authorization. Currently possible to download guessed files
+        #       which exist for the project but are not part of the dataset or when dataset is deprecated.
+        #       C.f. https://jira.eduuni.fi/browse/CSCFAIRDATA-289
+
     else:
         try:
             task_service.check_if_package_can_be_downloaded(dataset, package)
@@ -760,8 +781,7 @@ def download():
         'Content-Disposition': 'attachment; filename="%s"'
         % (package or filepath.split('/')[-1])
     }
-    return Response(stream_with_context(stream_response()),
-                    headers=response_headers)
+    return Response(stream_with_context(stream_response()), headers=response_headers)
 
 
 @download_api.errorhandler(400)

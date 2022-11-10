@@ -35,7 +35,7 @@ def create_flask_app():
     if 'DOWNLOAD_SERVICE_SETTINGS' in os.environ:
         logger.info("Loading DOWNLOAD_SERVICE_SETTINGS: %s" % os.environ['DOWNLOAD_SERVICE_SETTINGS'])
         app.config.from_envvar('DOWNLOAD_SERVICE_SETTINGS')
-
+ 
     cache.init_app(app)
     db.init_app(app)
     mq.init_app(app)
@@ -45,8 +45,7 @@ def create_flask_app():
     app.register_blueprint(healthcheck, url_prefix='/health')
 
     if os.environ.get('FLASK_ENV') != 'production':
-        from .blueprints.swagger import download_api_swagger, \
-                                        download_api_swagger_ui
+        from .blueprints.swagger import download_api_swagger, download_api_swagger_ui
         app.register_blueprint(download_api_swagger)
         app.register_blueprint(download_api_swagger_ui)
         app.logger.setLevel(logging.DEBUG)
