@@ -1,0 +1,12 @@
+The scripts in this directory are used for extracting and publishing legacy download event details
+to metrics.fairdata.fi which occurred before publication of events to metrics.fairdata.fi became
+part of the core download service behavior.
+
+The scripts and data snapshots remain for posterity, in case they may be needed in the future for
+a similar purpose.
+
+Note that no data stored in this subdirectory include any potentially personal identifying information
+and therefore does not require special privacy handling nor does GDPR apply.
+
+Once all legacy download reports are published on metrics.fairdata.fi (or metrics.fd-test.csc.fi),
+they can be validated against the extracted events. See the validate-events script for details.

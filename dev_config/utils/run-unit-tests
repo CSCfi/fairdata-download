@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #--------------------------------------------------------------------------------
-# This script is used to configure and manage a local development instance of
-# the download service. It should NOT be used in production.
+# This script is used to execute autonated tests in a local development
+# instance of the download service. It should NOT be used in production.
 #--------------------------------------------------------------------------------
 
 SCRIPT="$(realpath $0)"
@@ -13,5 +13,6 @@ source $UTILS/init-dev-script.sh
 
 cd $ROOT
 source venv/bin/activate
-coverage run -m pytest
+
+coverage run -m pytest -W ignore::urllib3.exceptions.InsecureRequestWarning
 

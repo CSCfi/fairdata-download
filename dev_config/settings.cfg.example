@@ -42,3 +42,6 @@ JWT_SECRET='DEFINE_ME'
 METAX_URL='https://metax.fd-test.csc.fi/'
 METAX_USER='download'
 METAX_PASS='DEFINE_ME'
+
+FDWE_API="https://metrics.fairdata.fi:4444"
+FDWE_TOKEN="DEFINE_ME"

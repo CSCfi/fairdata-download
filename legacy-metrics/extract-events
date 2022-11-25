@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+#--------------------------------------------------------------------------------
+# This script is used to extract download event records to be published to 
+# metrics.fairdat.fi based on a snapshot copy of the download database file.
+# This script should NOT be run in production and should NEVER be run using
+# any production or active database file. Create a local copy first!
+#--------------------------------------------------------------------------------
+
+SCRIPT="$(realpath $0)"
+METRICS=`dirname "$SCRIPT"`
+ROOT=`dirname "$METRICS"`
+
+#--------------------------------------------------------------------------------
+
+if [ -z "$DOWNLOAD_SERVICE_SETTINGS" ]; then
+    DOWNLOAD_SERVICE_SETTINGS="$ROOT/dev_config/settings.cfg"
+fi
+
+if [ ! -f "$DOWNLOAD_SERVICE_SETTINGS" ]; then
+    echo "Could not find service configuration file '${DOWNLOAD_SERVICE_SETTINGS}'! Exiting" >&2
+    exit 1
+fi
+
+if [ -z "$DATABASE_SNAPSHOT_FILE" ]; then
+    DATABASE_SNAPSHOT_FILE="$METRICS/download.db"
+fi
+
+if [ ! -f "$DATABASE_SNAPSHOT_FILE" ]; then
+    echo "Could not find database file '${DATABASE_SNAPSHOT_FILE}'! Exiting" >&2
+    exit 1
+fi
+
+source $ROOT/venv/bin/activate
+source $DOWNLOAD_SERVICE_SETTINGS
+
+if [ -z "$JWT_SECRET" ]; then
+    echo "The variable 'JWT_SECRET' is not defined! Exiting" >&2
+    exit 1
+fi
+
+export DATABASE_SNAPSHOT_FILE
+export JWT_SECRET
+
+python $METRICS/lib/extract-events.py
+

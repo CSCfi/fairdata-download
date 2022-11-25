@@ -44,12 +44,12 @@ def create_flask_app():
     app.register_blueprint(download_api)
     app.register_blueprint(healthcheck, url_prefix='/health')
 
-    if os.environ.get('FLASK_ENV') != 'production':
+    if os.environ.get('FLASK_DEBUG'):
         from .blueprints.swagger import download_api_swagger, download_api_swagger_ui
         app.register_blueprint(download_api_swagger)
         app.register_blueprint(download_api_swagger_ui)
         app.logger.setLevel(logging.DEBUG)
-    elif os.environ.get('FLASK_ENV') == 'production':
+    else:
         app.logger.setLevel(logging.ERROR)
 
     return app

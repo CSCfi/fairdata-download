@@ -5,23 +5,20 @@
     Module for views used by Fairdata Download Service.
 """
 import json
-
 from datetime import datetime, timedelta
 from marshmallow import ValidationError
 from os import path
-
 from flask import Blueprint, Response, abort, current_app, jsonify, request, stream_with_context
 from jwt import decode, encode, ExpiredSignatureError
 from jwt.exceptions import DecodeError
 from requests.exceptions import ConnectionError
-
 from ..services import task_service
 from ..services.cache import  housekeep_cache, get_datasets_dir, get_mock_notifications_dir
-from ..services.db import get_download_record, get_request_scopes, \
-                          get_task_for_package, get_task_rows, \
+from ..services.db import get_download_record_by_token, get_request_scopes, \
+                          get_task_for_package, get_task_id_for_package, get_task_rows, \
                           create_download_record, create_request_scope, \
                           create_subscription_row, create_task_rows, get_package_row, \
-                          get_generate_scope_filepaths, update_download_record
+                          get_generate_scope_filepaths, finalize_download_record, extract_event
 from ..services import metax
 from ..services.metax import get_dataset_modified_from_metax, \
                              get_matching_project_identifier_from_metax, \
@@ -32,8 +29,43 @@ from ..utils import convert_utc_timestamp, format_datetime, ida_service_is_offli
 from ..model.requests import AuthorizePostData, DownloadQuerySchema, \
                              RequestsPostData, RequestsQuerySchema, SubscribePostData, \
                              MockNotifyPostData
+from ..events import construct_event_title
+
+import requests
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 
 download_api = Blueprint('download-api', __name__)
+
+
+def publish_event(event):
+    """
+    Publish the specified event to metrics.fairdata.fi
+    """
+    current_app.logger.debug("Publishing event: %s" % json.dumps(event))
+
+    try:
+
+        timestamp = event["started"]
+        title = construct_event_title(event)
+
+        current_app.logger.info("Publishing event: %s: %s" % (timestamp, title))
+
+        try:
+            api = current_app.config["FDWE_API"]
+            token = current_app.config["FDWE_TOKEN"]
+            environment = current_app.config.get("ENVIRONMENT", "DEV")
+            url = "%s/report?token=%s&environment=%s&service=DOWNLOAD&scope=%s&timestamp=%s" % (api, token, environment, title, timestamp)
+            response = requests.post(url, verify=False)
+            if response.status_code != 200:
+                raise Exception(response.text)
+        except BaseException as error:
+            current_app.logger.error("Failed to publish event: %s" % str(error))
+
+    except BaseException as error:
+        current_app.logger.error("Malformed event: %s: %s" % (str(error), json.dumps(event)))
+
 
 @download_api.route('/requests', methods=['GET'])
 def get_request():
@@ -209,6 +241,7 @@ def get_request():
 
     return jsonify(response)
 
+
 @download_api.route('/requests', methods=['POST'])
 def post_request():
     """Internally available end point for initiating dataset package file generation.
@@ -354,6 +387,7 @@ def post_request():
         housekeep_cache()
     return jsonify(response)
 
+
 @download_api.route('/subscribe', methods=['POST'])
 def post_subscribe():
     """Internally available end point for subscribing to a package generation task.
@@ -460,6 +494,7 @@ def post_subscribe():
         'notifyURL': notify_url
     }), 201
 
+
 @download_api.route('/mock_notify', methods=['POST'])
 def post_mock_notify():
     """Internally available end point for mock reception of subscription notification once dataset package has been successfully generated. Used by automated testing.
@@ -526,6 +561,7 @@ def post_mock_notify():
     return jsonify({
         'subscriptionData': subscription_data,
     }), 200
+
 
 @download_api.route('/authorize', methods=['POST'])
 def authorize():
@@ -605,19 +641,21 @@ def authorize():
         if filename is None:
             abort(400, 'Missing file parameter')
         try:
-            project_identifier = get_matching_project_identifier_from_metax(
-                dataset,
-                filename)
+            project_identifier = get_matching_project_identifier_from_metax(dataset, filename)
         except NoMatchingFilesFound as err:
             abort(404, err)
+
+        # TODO: Add missing tests whether the file belongs to the specified dataset or the dataset has been
+        #       modified (invalidated) since the authorization. Currently possible to authorize files
+        #       which exist for the project but are not part of the dataset or when dataset is deprecated.
+        #       C.f. https://jira.eduuni.fi/browse/CSCFAIRDATA-289
 
         # Verify current_app.config
         current_app.logger.debug(current_app.config)
 
         # Create JWT
         jwt_payload = {
-            'exp': datetime.utcnow()
-                   + timedelta(minutes=current_app.config['JWT_TTL']),
+            'exp': datetime.utcnow() + timedelta(minutes=current_app.config['JWT_TTL']),
             'dataset': dataset,
             'file': filename,
             'project': project_identifier
@@ -643,20 +681,26 @@ def authorize():
 
         # Create JWT
         jwt_payload = {
-            'exp': datetime.utcnow()
-                   + timedelta(minutes=current_app.config['JWT_TTL']),
+            'exp': datetime.utcnow() + timedelta(minutes=current_app.config['JWT_TTL']),
             'dataset': dataset,
             'package': package
         }
 
-    jwt_token = encode(
-        jwt_payload,
-        current_app.config['JWT_SECRET'],
-        algorithm=current_app.config['JWT_ALGORITHM'])
+        # Because when the package cache is cleaned, we can lose package records, and the package records
+        # are the only explicit means to link the download records with generation requests and thereby 
+        # determine whether the package is complete or partial, and if partial what the scope was,  we will
+        # include the package generation task id in the authorization token for the package download, so that
+        # it persists as part of any subsequent download record in the stored token, and can be later used to
+        # determine if the package was complete or partial, and for partial packages to obtain the scope of the
+        # partial package for inclusion in the download metrics, even if the package record is subsequently lost
+        # due to cleaning the package cache.
 
-    return jsonify(
-        token=jwt_token.decode()
-    )
+        jwt_payload['generated_by'] = get_task_id_for_package(package)
+
+    jwt_token = encode(jwt_payload, current_app.config['JWT_SECRET'], algorithm=current_app.config['JWT_ALGORITHM'])
+
+    return jsonify(token=jwt_token.decode())
+
 
 @download_api.route('/download', methods=['GET'])
 def download():
@@ -692,6 +736,8 @@ def download():
 
     current_app.logger.debug("GET /download: %s" % json.dumps(request.args))
 
+    event = {}
+
     try:
         request_data = DownloadQuerySchema().load(request.args)
     except ValidationError as err:
@@ -703,7 +749,7 @@ def download():
     if current_app.config['ALWAYS_RUN_HOUSEKEEPING_IN_DOWNLOAD_ENDPOINT'] is True:
         housekeep_cache()
 
-    download_row = get_download_record(auth_token)
+    download_row = get_download_record_by_token(auth_token)
 
     if download_row is not None:
         current_app.logger.info('Received download request with used token.')
@@ -725,6 +771,8 @@ def download():
     dataset = jwt_payload['dataset']
     package = jwt_payload.get('package')
 
+    event["dataset"] = dataset
+
     if package is None:
         # If the IDA service is offline, report the download service unavailable (for file downloads)
         if ida_service_is_offline(current_app):
@@ -732,6 +780,9 @@ def download():
 
         filepath = jwt_payload.get('file')
         project_identifier = jwt_payload.get('project')
+
+        event["type"] = "FILE"
+        event["file"] = filepath
 
         filename = path.join(
             current_app.config['IDA_DATA_ROOT'],
@@ -771,10 +822,12 @@ def download():
           while chunk != b"":
             yield chunk
             chunk = f.read(1024)
-        update_download_record(download_id)
+        finalize_download_record(download_id)
+        publish_event(extract_event(download_id))
       except:
-        update_download_record(download_id, False)
         current_app.logger.error("Failed to stream file '%s'" % filename)
+        finalize_download_record(download_id, False)
+        publish_event(extract_event(download_id))
 
     response_headers= {
         'Content-Type': 'application/octet-stream',
@@ -790,11 +843,13 @@ def bad_request(error):
     current_app.logger.error(error)
     return jsonify(name=error.name, error=str(error.description)), 400
 
+
 @download_api.errorhandler(401)
 def unauthorized(error):
     """Error handler for HTTP 401."""
     current_app.logger.error(error)
     return jsonify(name=error.name, error=str(error.description)), 401
+
 
 @download_api.errorhandler(404)
 def resource_not_found(error):
@@ -802,17 +857,20 @@ def resource_not_found(error):
     current_app.logger.error(error)
     return jsonify(name=error.name, error=str(error.description)), 404
 
+
 @download_api.errorhandler(409)
 def conflict(error):
     """Error handler for HTTP 409."""
     current_app.logger.error(error)
     return jsonify(name=error.name, error=str(error.description)), 409
 
+
 @download_api.errorhandler(500)
 def internal_server_error(error):
     """Error handler for HTTP 500."""
     current_app.logger.error(error)
     return jsonify(name=error.name, error=str(error.description)), 500
+
 
 @download_api.errorhandler(503)
 def service_not_available(error):

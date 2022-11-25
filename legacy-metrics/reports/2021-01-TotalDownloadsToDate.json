@@ -1,0 +1,28 @@
+{
+    "7b612b8a-23fd-4012-9616-2a9deccb10c7": {
+        "total_requests": 2,
+        "total_successful": 2,
+        "total_failed": 0,
+        "package_successful": 2,
+        "package_failed": 0,
+        "complete_successful": 0,
+        "complete_failed": 0,
+        "partial_successful": 0,
+        "partial_failed": 0,
+        "file_successful": 0,
+        "file_failed": 0
+    },
+    "ALL": {
+        "total_requests": 2,
+        "total_successful": 2,
+        "total_failed": 0,
+        "package_successful": 2,
+        "package_failed": 0,
+        "complete_successful": 0,
+        "complete_failed": 0,
+        "partial_successful": 0,
+        "partial_failed": 0,
+        "file_successful": 0,
+        "file_failed": 0
+    }
+}

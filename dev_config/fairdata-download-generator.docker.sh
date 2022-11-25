@@ -6,12 +6,12 @@
 source /opt/fairdata/fairdata-download-service/dev_config/fairdata-download-generator.env
 
 export FLASK_APP
-export FLASK_ENV
+export FLASK_DEBUG
 export DOWNLOAD_SERVICE_SETTINGS
 
 if [ "$DEBUG" = "true" ]; then
     echo "FLASK_APP:                 $FLASK_APP"
-    echo "FLASK_ENV:                 $FLASK_ENV"
+    echo "FLASK_DEBUG:               $FLASK_DEBUG"
     echo "DOWNLOAD_SERVICE_SETTINGS: $DOWNLOAD_SERVICE_SETTINGS"
     echo "CELERY_BIN:                $CELERY_BIN"
     echo "CELERY_APP:                $CELERY_APP"

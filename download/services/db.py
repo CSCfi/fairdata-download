@@ -1,23 +1,24 @@
 """
-    download.db
-    ~~~~~~~~~~~
+download.db
+~~~~~~~~~~~
 
-    Database module for Fairdata Download Service.
+Database module for Fairdata Download Service.
 """
 from os import path
 import sqlite3
-
+import json
 import click
 import pendulum
 from flask import current_app, g
 from flask.cli import AppGroup
-
+from jwt import decode
 from ..dto import Package
+from ..events import normalize_timestamp
+
 
 def get_db():
-    """Returns database connection from global scope, or connects to database
-    if no conection is already established.
-
+    """
+    Returns database connection from global scope, or connects to database if no conection is already established.
     """
     init_schema = False
 
@@ -40,10 +41,10 @@ def get_db():
 
     return g.db
 
-def close_db(e=None):
-    """Removes database connection from global scope and disconnects from
-    database.
 
+def close_db(e=None):
+    """
+    Removes database connection from global scope and disconnects from database.
     """
     db_conn = g.pop('db', None)
 
@@ -54,9 +55,10 @@ def close_db(e=None):
             'Disconnected from database on %s' %
             (current_app.config['DATABASE_FILE'], ))
 
-def init_db():
-    """Initializes database by creating tables that don't exist.
 
+def init_db():
+    """
+    Initializes database by creating tables that don't exist.
     """
     db_conn = get_db()
 
@@ -67,11 +69,12 @@ def init_db():
         'Initialized database on %s' %
         (current_app.config['DATABASE_FILE'], ))
 
-def get_download_record(token):
-    """Returns a row from download table for a given authentication token.
 
-    :param token: JWT encoded authentication token for which download row is
-                  fetched
+def get_download_record_by_token(token):
+    """
+    Returns a row from download table for a given authentication token.
+
+    :param token: JWT encoded authentication token for which download row is fetched
     """
     db_conn = get_db()
     db_cursor = db_conn.cursor()
@@ -81,9 +84,25 @@ def get_download_record(token):
         (token,)
     ).fetchone()
 
+
+def get_download_record_by_id(download_id):
+    """
+    Returns a row from download table for a given record id
+
+    :param download_id: integer id of the download record
+    """
+    db_conn = get_db()
+    db_cursor = db_conn.cursor()
+
+    return db_cursor.execute(
+        'SELECT * FROM download WHERE id = ?',
+        (download_id,)
+    ).fetchone()
+
+
 def get_request_scopes(task_id):
-    """Returns a list of sets of scopes that have been requested and are
-    fulfilled by specified partial file generation task.
+    """
+    Returns a list of sets of scopes that have been requested and are fulfilled by specified partial file generation task.
 
     :param task_id: ID of the partial file generation task
     """
@@ -107,12 +126,13 @@ def get_request_scopes(task_id):
 
     return request_scopes
 
+
 def get_task_rows(dataset_id, initiated_after=''):
-    """Returns a rows from file_generate table for a dataset.
+    """
+    Returns a rows from file_generate table for a dataset.
 
     :param dataset_id: ID of dataset for which task rows are fetched
-    :param initiated_after: timestamp after which fetched tasks may have been
-                            initialized
+    :param initiated_after: timestamp after which fetched tasks may have been initialized
     """
     db_conn = get_db()
     db_cursor = db_conn.cursor()
@@ -129,8 +149,10 @@ def get_task_rows(dataset_id, initiated_after=''):
         (dataset_id, initiated_after)
     ).fetchall()
 
+
 def create_subscription_row(task_id, notify_url, subscription_data):
-    """Creates a new subscription for the specified package generation task
+    """
+    Creates a new subscription for the specified package generation task
     """
     db_conn = get_db()
     db_cursor = db_conn.cursor()
@@ -146,8 +168,10 @@ def create_subscription_row(task_id, notify_url, subscription_data):
         "Created a new subscription for package generation task '%s'"
         % (task_id))
 
+
 def get_subscription_rows(task_id):
-    """Fetch subscription rows for the specified package generation task
+    """
+    Fetch subscription rows for the specified package generation task
     """
     db_conn = get_db()
     db_cursor = db_conn.cursor()
@@ -157,8 +181,10 @@ def get_subscription_rows(task_id):
         (task_id,)
     ).fetchall()
 
+
 def delete_subscription_rows(task_id):
-    """Delete subscription rows for the specified package generation task
+    """
+    Delete subscription rows for the specified package generation task
     """
     db_conn = get_db()
     db_cursor = db_conn.cursor()
@@ -171,12 +197,12 @@ def delete_subscription_rows(task_id):
         "Deleted subscription rows for package generation task '%s'"
         % (task_id))
 
-def create_download_record(token, filename):
-    """Creates a new download record for a given package with specified
-    authentication token.
 
-    :param token: JWT encoded authentication token used for authorizing file
-                  download
+def create_download_record(token, filename):
+    """
+    Creates a new download record for a given package with specified authentication token.
+
+    :param token: JWT encoded authentication token used for authorizing file download
     :param filename: Filename of the downloaded package
     """
     db_conn = get_db()
@@ -195,8 +221,11 @@ def create_download_record(token, filename):
 
     return db_cursor.lastrowid
 
-def update_download_record(download_id, successful=True):
-    """Update download record after the stream has ended.
+
+def finalize_download_record(download_id, successful=True):
+    """
+    Finalize (update) download record after the stream has ended, either
+    successfully or with failure.
 
     :param download_id: ID of the download record in the database
     :param successful: Whether or not the download ended succesfully
@@ -217,14 +246,13 @@ def update_download_record(download_id, successful=True):
         "Set status of download '%s' to '%s'"
         % (download_id, status))
 
-def create_request_scope(task_id, request_scope):
-    """Creates database rows for a file generation request that is fulfilled by
-    given task.
 
-    :param task_id: ID of the partial file generation task fulfilling specified
-                    scope
-    :param request_scope: List of files or directories included in the scope as
-                          requested by client
+def create_request_scope(task_id, request_scope):
+    """
+    Creates database rows for a file generation request that is fulfilled by given task.
+
+    :param task_id: ID of the partial file generation task fulfilling specified scope
+    :param request_scope: List of files or directories included in the scope as requested by client
     """
     db_conn = get_db()
     db_cursor = db_conn.cursor()
@@ -246,16 +274,15 @@ def create_request_scope(task_id, request_scope):
         "'%s'"
         % (task_id, request_scope))
 
+
 def create_task_rows(dataset_id, task_id, is_partial, generate_scope):
-    """Creates all the appropriate rows to generate_task and generate_scope
-    tables for a given file generation task.
+    """
+    Creates all the appropriate rows to generate_task and generate_scope tables for a given file generation task.
 
     :param dataset_id: ID of the dataset that the files belong to
     :param task_id: ID of the generation task
-    :param is_partial: Boolean value specifying whether the package is partial
-                       ie. does not include all of the files in the dataset
-    :param generate_scope: List of all the filepaths to be included in the
-                           generated package
+    :param is_partial: Boolean value specifying whether the package is partial ie. does not include all of the files in the dataset
+    :param generate_scope: List of all the filepaths to be included in the generated package
     """
     db_conn = get_db()
     db_cursor = db_conn.cursor()
@@ -285,9 +312,10 @@ def create_task_rows(dataset_id, task_id, is_partial, generate_scope):
         (task_id,)
     ).fetchone()
 
+
 def exists_in_database(filename):
-    """Returns true if a package with a given filename can be found in the
-       database.
+    """
+    Returns true if a package with a given filename can be found in the database.
 
     :param filename: Name of the package file
     """
@@ -298,6 +326,7 @@ def exists_in_database(filename):
         'SELECT * FROM package WHERE filename = ?',
         (filename,)
     ).fetchone() is not None
+
 
 def get_cache_stats():
     db_conn = get_db()
@@ -348,8 +377,10 @@ def get_active_packages():
         packages.append(Package(filename, size_bytes, no_downloads, **converted))
     return packages
 
+
 def delete_package_rows(filenames):
-    """Delete package rows for packages with the specified file names
+    """
+    Delete package rows for packages with the specified file names
     """
     db_conn = get_db()
     db_cursor = db_conn.cursor()
@@ -362,8 +393,10 @@ def delete_package_rows(filenames):
         "Deleted %s package rows"
         % (len(filenames)))
 
+
 def get_package_row(generated_by):
-    """Returns row from package table for a given task.
+    """
+    Returns row from package table for a given task.
 
     :param generated_by: ID of the task that initiated the package generation
     """
@@ -377,8 +410,10 @@ def get_package_row(generated_by):
         (generated_by,)
     ).fetchone()
 
+
 def get_generate_scope_filepaths(task_id):
-    """Returns list of filepaths included in specified task scope.
+    """
+    Returns list of filepaths included in specified task scope.
 
     :param task_id: ID of the task whose scope is to be fetched
     """
@@ -394,8 +429,10 @@ def get_generate_scope_filepaths(task_id):
 
     return set(map(lambda scope_row: scope_row['filepath'], scope_rows))
 
+
 def get_task_for_package(dataset_id, package):
-    """Returns initiated timestamp of a file generation task for a package.
+    """
+    Returns initiated timestamp of a file generation task for a package.
 
     :param dataset_id: ID of the dataset for which the package is generated
     :param package: Filename of the package whose task initiation is fetched
@@ -414,13 +451,110 @@ def get_task_for_package(dataset_id, package):
         (dataset_id, package)
     ).fetchone()
 
+
+def get_task_id_for_package(package):
+    """
+    Returns id of the file generation task for a package.
+
+    :param package: Filename of the package whose task id is fetched
+    """
+    db_conn = get_db()
+    db_cursor = db_conn.cursor()
+
+    task_id = None
+
+    row = db_cursor.execute('SELECT generated_by FROM package WHERE filename = ?', (package,)).fetchone()
+
+    if row and len(row) > 0:
+        task_id = row[0]
+
+    return task_id
+
+
+def get_task(package, task_id):
+    """
+    Retrieves the task record associated with the specified task_id, if provided, else with the specified package filename, if possible
+    """
+    db = get_db()
+    db_cursor = db.cursor()
+
+    if not task_id:
+        row = db_cursor.execute('SELECT generated_by FROM package WHERE filename = ?', (package,)).fetchone()
+        if row and len(row) > 0:
+            task_id = row[0]
+
+    if not task_id:
+        task_id = ''
+
+    return db_cursor.execute('SELECT * FROM generate_task WHERE task_id = ?', (task_id,)).fetchone()
+
+
+def get_scope(task_id):
+    """
+    Determines and returns scope for the specified partial package generation task_id
+    """
+    db = get_db()
+    db_cursor = db.cursor()
+
+    generate_request = db_cursor.execute('SELECT id FROM generate_request WHERE task_id = ? ORDER BY id DESC LIMIT 1', (task_id,)).fetchone()
+
+    scope = []
+
+    if generate_request:
+        rows = db_cursor.execute('SELECT prefix FROM generate_request_scope WHERE request_id = ?', (generate_request['id'],)).fetchall()
+        for row in rows:
+            scope.append(str(row["prefix"]))
+
+    if len(scope) > 0:
+        return scope
+
+    return None
+
+
+def extract_event(download_id):
+    current_app.logger.debug("Extracting event for download id %s" % download_id)
+    download = get_download_record_by_id(download_id)
+    event = {}
+    token = decode(download["token"], current_app.config["JWT_SECRET"], algorithms=[current_app.config["JWT_ALGORITHM"]])
+    dataset = token["dataset"]
+    event["dataset"] = dataset
+    file = token.get("file")
+    if file:
+        event["type"] = "FILE"
+        event["file"] = file
+    else:
+        package = token["package"]
+        task = get_task(package, token.get("generated_by"))
+        if task:
+            if task["is_partial"] == 0:
+                event["type"] = "COMPLETE"
+            else:
+                scope = get_scope(task["task_id"])
+                if scope:
+                    event["type"] = "PARTIAL"
+                    event["scope"] = scope
+        if not event.get("type"):
+            event["type"] = "PACKAGE"
+            event["package"] = package
+    if download["status"] == "SUCCESSFUL":
+        event["status"] = "SUCCESS"
+    else:
+        event["status"] = "FAILURE"
+    event["started"] = normalize_timestamp(download["started"])
+    event["finished"] = normalize_timestamp(download["finished"])
+    current_app.logger.debug("Extracted event for download id %s: %s" % (download_id, json.dumps(event)))
+    return event
+
+
 db_cli = AppGroup('db', help='Run operations against database.')
+
 
 @db_cli.command('init')
 def init_db_command():
     """Ensure all of the required database tables exist."""
     init_db()
     click.echo('Initialized the database.')
+
 
 def init_app(app):
     """Hooks database extension to given Flask application.

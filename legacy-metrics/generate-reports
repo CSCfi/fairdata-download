@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+#--------------------------------------------------------------------------------
+# This script is used to generate json encoded download reports for each month
+# for which there is extracted data, for use in validating the similarly 
+# generated json report files produced by fairdata-metrics. Once both these
+# and the fairdata-metrics reports are generated, the script validate-reports
+# can be used to verify that both sets of reports are identical, and thus all
+# events are being properly retrieved via the Matomo analytics engine after
+# publication of the events.
+#--------------------------------------------------------------------------------
+
+SCRIPT="$(realpath $0)"
+METRICS=`dirname "$SCRIPT"`
+ROOT=`dirname "$METRICS"`
+
+#--------------------------------------------------------------------------------
+
+if [ -z "$DOWNLOAD_SERVICE_SETTINGS" ]; then
+    DOWNLOAD_SERVICE_SETTINGS="$ROOT/dev_config/settings.cfg"
+fi
+
+if [ ! -f "$DOWNLOAD_SERVICE_SETTINGS" ]; then
+    echo "Could not find service configuration file '${DOWNLOAD_SERVICE_SETTINGS}'! Exiting" >&2
+    exit 1
+fi
+
+if [ -z "$EVENTS_SNAPSHOT_FILE" ]; then
+    EVENTS_SNAPSHOT_FILE="$METRICS/events.json"
+fi
+
+if [ ! -f "$EVENTS_SNAPSHOT_FILE" ]; then
+    echo "Could not find events file '${EVENTS_SNAPSHOT_FILE}'! Exiting" >&2
+    exit 1
+fi
+
+source $ROOT/venv/bin/activate
+source $DOWNLOAD_SERVICE_SETTINGS
+
+EVENTS_REPORT_ROOT="$METRICS/reports"
+
+if [ ! -d $EVENTS_REPORT_ROOT ]; then
+    mkdir $EVENTS_REPORT_ROOT
+fi
+
+export EVENTS_SNAPSHOT_FILE
+export EVENTS_REPORT_ROOT
+
+python $METRICS/lib/generate-reports.py

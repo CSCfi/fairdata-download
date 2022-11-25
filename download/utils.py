@@ -15,7 +15,9 @@ import pytz
 
 from .dto import Package
 
+
 GB = 1073741824
+
 
 def convert_utc_timestamp(utc_timestamp):
     """Converts a string from UTC naive form to UTC localtime.
@@ -25,12 +27,14 @@ def convert_utc_timestamp(utc_timestamp):
     """
     return datetime.fromisoformat(utc_timestamp + '+00:00').astimezone()
 
+
 def convert_timestamp_to_utc(timestamp):
     """Converts a string from UTC naive form to UTC localtime.
 
     :param timestamp: Timestamp in an arbitrary timezone
     """
     return datetime.fromisoformat(timestamp).astimezone(pytz.utc)
+
 
 def format_datetime(utc_timestamp):
     """Formats given timestamp to the form returned by the Download Service.
@@ -39,6 +43,7 @@ def format_datetime(utc_timestamp):
                          timezone
     """
     return convert_utc_timestamp(utc_timestamp).isoformat(timespec='seconds')
+
 
 def startswithpath(prefix, filepath, sep='/'):
     """Checks whether files in a filepath string match to files in a given path

@@ -21,7 +21,7 @@ VOLUME /mnt/download-service-cache
 ENV FLASK_APP=download
 ENV FLASK_RUN_HOST=0.0.0.0
 ENV FLASK_RUN_PORT=5000
-ENV FLASK_ENV=development
+ENV FLASK_DEBUG=1
 
 EXPOSE 5000
 

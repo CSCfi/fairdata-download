@@ -13,7 +13,8 @@ TODO
 tags
 project.sublime-project
 
-/tmp
+tmp/
+
 /venv
 /data
 /log

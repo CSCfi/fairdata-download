@@ -19,6 +19,6 @@ VOLUME /mnt/download-service-cache
 
 # Configure application
 ENV FLASK_APP=download
-ENV FLASK_ENV=development
+ENV FLASK_DEBUG=1
 
 CMD ["celery", "-A", "download.tasks", "worker"]

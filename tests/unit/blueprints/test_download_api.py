@@ -1,7 +1,7 @@
 import pytest
+import os
 
-
-trusted_service_token = "test42"
+trusted_service_token = os.environ.get("TRUSTED_SERVICE_TOKEN", "test42")
 
 @pytest.mark.usefixtures()
 class TestGetRequest:
