@@ -13,9 +13,7 @@ class TestGetRequest:
             'dataset': pending_task['dataset_id']
         }
         response = client.get(self.endpoint, query_string=query_string)
-        # TODO: change expected response to 401 once header is required
-        assert response.status_code == 200
-        #assert response.status_code == 401
+        assert response.status_code == 401
 
     def test_malformed_authorization_header(self, client, mock_metax, pending_task):
         client.environ_base['HTTP_AUTHORIZATION'] = 'Bearer'
@@ -153,9 +151,7 @@ class TestPostRequest:
             'dataset': not_found_task['dataset_id']
         }
         response = client.post(self.endpoint, json=json)
-        # TODO: change expected response to 401 once header is required
-        assert response.status_code == 200
-        #assert response.status_code == 401
+        assert response.status_code == 401
 
     def test_malformed_authorization_header(self, client, mock_metax, recorder, not_found_task):
         client.environ_base['HTTP_AUTHORIZATION'] = 'Bearer'
@@ -323,9 +319,7 @@ class TestPostSubscribe:
             'subscriptionData': 'aslrnlbrinrdlr',
             'notifyURL': 'https://example.com/notify'
         })
-        # TODO: change expected response to 401 once header is required
-        assert response.status_code == 201
-        #assert response.status_code == 401
+        assert response.status_code == 401
 
     def test_malformed_authorization_header(self, client, mock_metax, pending_task):
         client.environ_base['HTTP_AUTHORIZATION'] = 'Bearer'
@@ -412,9 +406,7 @@ class TestPostAuthorize:
             'dataset': success_task['dataset_id'],
             'package': success_task['package']
         })
-        # TODO: change expected response to 401 once header is required
-        assert response.status_code == 200
-        #assert response.status_code == 401
+        assert response.status_code == 401
 
     def test_malformed_authorization_header(self, client, recorder, mock_metax, success_task):
         client.environ_base['HTTP_AUTHORIZATION'] = 'Bearer'

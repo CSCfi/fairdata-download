@@ -146,11 +146,6 @@ def ida_service_is_offline(current_app):
 def authenticate_trusted_service(current_app, request):
     token = current_app.config.get("TRUSTED_SERVICE_TOKEN")
     auth_header = request.headers.get('Authorization')
-    # !!!
-    if token is None or auth_header is None:
-        current_app.logger.warning("Ignoring missing config token or header")
-        return # TODO: once all trusted services are providing the bearer header, remove this if clause!
-    # !!!
     if token is None:
         msg = "Missing trusted service token configuration"
         current_app.logger.error(msg)
@@ -165,11 +160,6 @@ def authenticate_trusted_service(current_app, request):
         msg = "Malformed authorization header"
         current_app.logger.warning(msg)
         raise PermissionError(msg)
-    # !!!
-    if auth_method != 'Bearer':
-        current_app.logger.warning("Ignoring invalid authorization method")
-        return # TODO: once all trusted services are providing the bearer header, remove this if clause!
-    # !!!
     if auth_method != 'Bearer':
         msg = "Invalid authorization method"
         current_app.logger.warning(msg)
