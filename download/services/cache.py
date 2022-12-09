@@ -21,13 +21,17 @@ from . import db
 def housekeep_cache():
     cache_stats = db.get_cache_stats()
     cache_usage = cache_stats["usage_bytes"]
+
+    # Convert to int in order to prevent NoneType errors
+    cache_usage_int = int(cache_usage or 0)
+
     cache_purge_threshold = int(current_app.config["CACHE_PURGE_THRESHOLD"])
     cache_purge_target = int(current_app.config["CACHE_PURGE_TARGET"])
 
-    if cache_usage != None and cache_usage > cache_purge_threshold or current_app.config["ALWAYS_CALCULATE_CACHE_RANKING"]:
+    if cache_usage_int != 0 and cache_usage_int > cache_purge_threshold or current_app.config["ALWAYS_CALCULATE_CACHE_RANKING"]:
         if current_app.config["ALWAYS_CALCULATE_CACHE_RANKING"]:
             current_app.logger.warning("cache ranking was triggered artificially")
-        clear_size = cache_usage - cache_purge_target
+        clear_size = cache_usage_int - cache_purge_target
         active_packages = db.get_active_packages()
         current_app.logger.info("active packages retrieved from database:\n"
                                 + tabulate([asdict(i) for i in active_packages], headers="keys"))
