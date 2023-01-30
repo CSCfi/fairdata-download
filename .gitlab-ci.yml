@@ -1,6 +1,27 @@
----
+workflow:
+  name: '$PIPELINE_NAME'
+  rules:
+    - if: $CI_PIPELINE_SOURCE =~ /^(web)$/
+      variables:
+        PIPELINE_NAME: 'Manual pipeline to $GITLAB_ENV'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      variables:
+        PIPELINE_NAME: 'MR pipeline'
+    - if: $CI_COMMIT_BRANCH =~ /^(master)$/
+      variables:
+        PIPELINE_NAME: 'Commit pipeline'
+
+# ------------------------
+
 variables:
-  GITLAB_ENV: test
+  GITLAB_ENV:
+    description: 'Which environment do you want to deploy to?'
+    value: 'test'
+    options:
+      - 'staging'
+      - 'test'
+      - 'demo'
+      - 'stable'
   SERVICE: ${SERVICE}
 
 default:
@@ -18,6 +39,23 @@ include:
     file:
       - /templates/deploy/deploy-jobs.yaml
       - /templates/test/test-jobs.yaml
+      - /templates/test/download-tests.yaml
+
+# ------------------------
+
+sonarqube:
+  stage: test
+  extends: .sonarqube-job
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH =~ /^(master)$/ && $CI_PIPELINE_SOURCE !~ /^(web)$/
+
+unit-test:
+  stage: test
+  extends: .download-unit-test
+  rules:
+    - if: $CI_PIPELINE_SOURCE =~ /^(web)$/
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 # ------------------------
 
@@ -30,31 +68,6 @@ deploy:
 deploy-feature:
   extends: .deploy-feature-job
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-
-# ------------------------
-
-sonarqube:
-  stage: test
-  extends: .sonarqube-job
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-
-unit-test:
-  stage: test
-  tags:
-    - docker
-  image:
-    name: python:3.8
-  interruptible: true
-  script:
-    - /usr/local/bin/python -m pip install --upgrade pip
-    - pip install -r requirements.txt
-    - pip install -r requirements-dev.txt
-    - coverage run -m pytest
-    - coverage report -m
-  rules:
-    - if: $CI_PIPELINE_SOURCE =~ /^(web)$/
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 # ------------------------
