@@ -97,6 +97,6 @@ def construct_event_title(event):
     elif event_type == "PACKAGE":
         title = "%s / %s" % (title, normalize_event_pathname(event["package"]))
     
-    title = "%s / %s " % (title, event["status"])
+    title = "%s / %s" % (title, event["status"])
 
     return title

@@ -32,6 +32,7 @@ from ..model.requests import AuthorizePostData, DownloadQuerySchema, \
 from ..events import construct_event_title
 
 import requests
+import urllib.parse
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -56,7 +57,9 @@ def publish_event(event):
             api = current_app.config["FDWE_API"]
             token = current_app.config["FDWE_TOKEN"]
             environment = current_app.config.get("ENVIRONMENT", "DEV")
-            url = "%s/report?token=%s&environment=%s&service=DOWNLOAD&scope=%s&timestamp=%s" % (api, token, environment, title, timestamp)
+            url = "%s/report?token=%s&environment=%s&service=DOWNLOAD&scope=%s&timestamp=%s" % (
+                api, token, environment, urllib.parse.quote(title), urllib.parse.quote(timestamp)
+            )
             response = requests.post(url, verify=False)
             if response.status_code != 200:
                 raise Exception(response.text)
