@@ -13,6 +13,15 @@ def client(flask_app):
     return flask_app.test_client()
 
 @pytest.fixture
+def trusted_service_token(flask_app):
+    return flask_app.config['TRUSTED_SERVICE_TOKEN']
+
+@pytest.fixture
+def authorized_client(client, trusted_service_token):
+    client.environ_base['HTTP_AUTHORIZATION'] = 'Bearer ' + trusted_service_token
+    return client
+
+@pytest.fixture
 def get_matching_dataset_files_connection_error(monkeypatch):
     def _get_matching_dataset_files_connection_error(dataset_id, scope):
         raise ConnectionError

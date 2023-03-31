@@ -141,11 +141,11 @@ def get_task_rows(dataset_id, initiated_after=''):
         'SELECT initiated, date_done, task_id, status, is_partial '
         'FROM generate_task t '
         'LEFT JOIN package p '
-        'ON t.dataset_id = ? '
+        'ON t.task_id = p.generated_by '
+        'WHERE t.dataset_id = ? '
         'AND t.initiated > ? '
-        'AND t.task_id = p.generated_by '
-        'WHERE (t.status is "SUCCESS" and p.filename is not null) '
-        'OR (t.status is not "SUCCESS" and t.status is not "FAILURE") ',
+        'AND ((t.status is "SUCCESS" and p.filename is not null) '
+        '  OR (t.status is not "SUCCESS" and t.status is not "FAILURE")) ',
         (dataset_id, initiated_after)
     ).fetchall()
 
