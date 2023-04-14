@@ -799,7 +799,7 @@ def download():
 
         # TODO: Add missing test whether the file belongs to the specified dataset, and if not, return
         #       4xx response. It is currently possible to download guessed files which exist for the
-        #       project but are not part of the dataset. C.f. https://jira.eduuni.fi/browse/CSCFAIRDATA-212
+        #       project but are not part of the dataset. C.f. https://jira.eduuni.fi/browse/CSCFAIRDATA-289
 
     else:
         try:
