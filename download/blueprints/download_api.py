@@ -776,6 +776,9 @@ def download():
 
     event["dataset"] = dataset
 
+    # TODO: Add missing test whether the dataset has been modified (invalidated) since the authorization,
+    #       and if so, return 4xx response. C.f. https://jira.eduuni.fi/browse/CSCFAIRDATA-212
+
     if package is None:
         # If the IDA service is offline, report the download service unavailable (for file downloads)
         if ida_service_is_offline(current_app):
@@ -794,10 +797,9 @@ def download():
             project_identifier,
             ) + filepath
 
-        # TODO: Add missing tests whether the file belongs to the specified dataset or the dataset has been
-        #       modified (invalidated) since the authorization. Currently possible to download guessed files
-        #       which exist for the project but are not part of the dataset or when dataset is deprecated.
-        #       C.f. https://jira.eduuni.fi/browse/CSCFAIRDATA-289
+        # TODO: Add missing test whether the file belongs to the specified dataset, and if not, return
+        #       4xx response. It is currently possible to download guessed files which exist for the
+        #       project but are not part of the dataset. C.f. https://jira.eduuni.fi/browse/CSCFAIRDATA-212
 
     else:
         try:
