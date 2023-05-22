@@ -66,6 +66,13 @@ deploy:
     - if: $CI_COMMIT_BRANCH =~ /^(master)$/
     - if: $CI_PIPELINE_SOURCE =~ /^(web)$/
 
+deploy-rework:
+  extends: .deploy-job
+  variables:
+    GITLAB_ENV: 'rework'
+  rules:
+    - if: $CI_COMMIT_BRANCH =~ /^(master)$/
+
 deploy-feature:
   extends: .deploy-feature-job
   rules:
