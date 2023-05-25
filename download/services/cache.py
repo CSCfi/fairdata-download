@@ -196,15 +196,16 @@ def select_packages_to_be_removed(clear_size: int, active_packages: List[Package
     for package in active_packages:
         if current_app:
             current_app.logger.debug("check download activity and age")
-        # If the package is not already expired, and has had no downloads and is older than 7 days, or is older than 30 days, mark as expired
+        # If the package is not already expired, and either is older than 7 days with no no downloads,
+        # or its last download is more than than 30 days ago, mark as expired
         if not package.expired:
             if package.generated_at.diff(now).in_days() > 7 and package.no_downloads == 0:
                 if current_app:
-                    current_app.logger.info("Package %s expired as it is older than a week with no downloads" % package.filename)
+                    current_app.logger.info("Package %s expired as it is older than 7 days with no downloads" % package.filename)
                 package.expired = True
             elif package.last_downloaded and package.last_downloaded.diff(now).in_days() > 30:
                 if current_app:
-                    current_app.logger.info("Package %s expired as it is older than a month" % package.filename)
+                    current_app.logger.info("Package %s expired as its last download is more than 30 days ago" % package.filename)
                 package.expired = True
         if package.expired:
             expired_packages.append(package)
