@@ -1,7 +1,7 @@
 import pendulum
 
 from download.dto import Package
-from download.utils import select_packages_to_be_removed
+from download.services.cache import select_packages_to_be_removed
 
 
 def test_select_packages():

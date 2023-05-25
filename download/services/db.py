@@ -13,7 +13,7 @@ from flask import current_app, g
 from flask.cli import AppGroup
 from jwt import decode
 from ..dto import Package
-from ..events import normalize_timestamp
+from ..utils import normalize_timestamp
 
 
 def get_db():
@@ -235,16 +235,11 @@ def finalize_download_record(download_id, successful=True):
 
     status = 'SUCCESSFUL' if successful else 'FAILED'
 
-    db_cursor.execute(
-        'UPDATE download SET status = ?, finished = DATETIME() WHERE id = ?',
-        (status, download_id)
-    )
+    db_cursor.execute('UPDATE download SET status = ?, finished = DATETIME() WHERE id = ?', (status, download_id))
 
     db_conn.commit()
 
-    current_app.logger.debug(
-        "Set status of download '%s' to '%s'"
-        % (download_id, status))
+    current_app.logger.debug("Set status of download '%s' to '%s'" % (download_id, status))
 
 
 def create_request_scope(task_id, request_scope):
@@ -403,12 +398,7 @@ def get_package_row(generated_by):
     db_conn = get_db()
     db_cursor = db_conn.cursor()
 
-    return db_cursor.execute(
-        'SELECT filename, size_bytes, checksum '
-        'FROM package '
-        'WHERE generated_by = ?',
-        (generated_by,)
-    ).fetchone()
+    return db_cursor.execute('SELECT * FROM package WHERE generated_by = ?', (generated_by,)).fetchone()
 
 
 def get_generate_scope_filepaths(task_id):
@@ -430,28 +420,6 @@ def get_generate_scope_filepaths(task_id):
     return set(map(lambda scope_row: scope_row['filepath'], scope_rows))
 
 
-def get_task_for_package(dataset_id, package):
-    """
-    Returns initiated timestamp of a file generation task for a package.
-
-    :param dataset_id: ID of the dataset for which the package is generated
-    :param package: Filename of the package whose task initiation is fetched
-    """
-    db_conn = get_db()
-    db_cursor = db_conn.cursor()
-
-    return db_cursor.execute(
-        'SELECT '
-        '  t.initiated '
-        'FROM generate_task t '
-        'JOIN package p '
-        'ON t.dataset_id = ? '
-        'AND p.filename = ? '
-        'AND t.task_id = p.generated_by ',
-        (dataset_id, package)
-    ).fetchone()
-
-
 def get_task_id_for_package(package):
     """
     Returns id of the file generation task for a package.
@@ -471,7 +439,7 @@ def get_task_id_for_package(package):
     return task_id
 
 
-def get_task(package, task_id):
+def get_task(package, task_id = None):
     """
     Retrieves the task record associated with the specified task_id, if provided, else with the specified package filename, if possible
     """
@@ -479,14 +447,41 @@ def get_task(package, task_id):
     db_cursor = db.cursor()
 
     if not task_id:
-        row = db_cursor.execute('SELECT generated_by FROM package WHERE filename = ?', (package,)).fetchone()
-        if row and len(row) > 0:
-            task_id = row[0]
+        task_id = get_task_id_for_package(package)
 
     if not task_id:
         task_id = ''
 
     return db_cursor.execute('SELECT * FROM generate_task WHERE task_id = ?', (task_id,)).fetchone()
+
+
+def get_dataset_id_for_package(package):
+    """
+    Returns dataset id of the file generation task for a package.
+
+    :param package: Filename of the package whose dataset id is fetched
+    """
+    task = get_task(package)
+    if task:
+        return task['dataset_id']
+    return None
+
+
+def update_package_generation_timestamps(package, timestamp):
+    """
+    Updates the package task record initiated and generated timestamps; used by automated testing.
+
+    :param package: Filename of the package whose task id is fetched
+    :param timestamp: Timestamp string to be recorded, matching the format "YYYY-MM-DD hh:mm:ss"
+    """
+    db_conn = get_db()
+    db_cursor = db_conn.cursor()
+
+    task_id = get_task_id_for_package(package)
+
+    db_cursor.execute('UPDATE generate_task SET initiated = ?, date_done = ? WHERE task_id = ?', (timestamp, timestamp, task_id))
+
+    db_conn.commit()
 
 
 def get_scope(task_id):

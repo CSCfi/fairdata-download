@@ -15,7 +15,7 @@ from click import option
 from flask import current_app
 from flask.cli import AppGroup
 
-from .cache import get_datasets_dir
+from .cache import get_datasets_dir, perform_housekeeping
 from .db import get_db, get_subscription_rows, delete_subscription_rows
 from ..utils import ida_service_is_offline
 
@@ -35,10 +35,14 @@ def generate(dataset, project_identifier, scope, requestor_id):
         prefix=dataset + '_',
         dir=get_datasets_dir())
 
+    # Before generating new package file, perform housekeeping on package cache
+    try:
+        perform_housekeeping()
+    except Exception as err:
+        current_app.logger.error("Error encountered while performing package cache housekeeping: %s" % str(err))
+
     # Generate file
-    current_app.logger.info(
-        "Generating download file for dataset '%s' with %s scoped files" %
-        (dataset, len(scope)))
+    current_app.logger.info("Generating download file for dataset '%s' with %s scoped files" % (dataset, len(scope)))
 
     source_root = os.path.join(
         current_app.config['IDA_DATA_ROOT'],

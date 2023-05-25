@@ -5,17 +5,6 @@
     Utility module for constructing Fairdata Download Service download events for publication to metrics.fairdata.fi
 """
 import re
-from dateutil.parser import parse
-
-
-def normalize_timestamp(timestamp):
-    """
-    Returns the input timestamp string as a normalized ISO UTC timestamp YYYY-MM-DDThh:mm:ssZ
-    """
-    try:
-        return parse(timestamp).strftime("%Y-%m-%dT%H:%M:%SZ")
-    except TypeError:
-        return None
 
 
 def normalize_event_pathname(pathname):

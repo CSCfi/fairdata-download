@@ -29,10 +29,6 @@ DATABASE_FILE='/mnt/download-service-cache/download.db'
 # Variables affecting the automated cache management
 CACHE_PURGE_THRESHOLD=1073741824 # Default to 1GB
 CACHE_PURGE_TARGET=786432000     # Default to 750MB
-ENABLE_CACHE_FILE_DELETION=False 
-ALWAYS_CALCULATE_CACHE_RANKING=False
-ALWAYS_RUN_HOUSEKEEPING_IN_DOWNLOAD_ENDPOINT=False
-ALWAYS_RUN_HOUSEKEEPING_IN_REQUEST_ENDPOINT=False
 
 # Message queue
 MQ_HOST='download-rabbitmq'

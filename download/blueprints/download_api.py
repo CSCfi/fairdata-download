@@ -13,19 +13,13 @@ from jwt import decode, encode, ExpiredSignatureError
 from jwt.exceptions import DecodeError
 from requests.exceptions import ConnectionError
 from ..services import task_service
-from ..services.cache import  housekeep_cache, get_datasets_dir, get_mock_notifications_dir
-from ..services.db import get_download_record_by_token, get_request_scopes, \
-                          get_task_for_package, get_task_id_for_package, get_task_rows, \
-                          create_download_record, create_request_scope, \
-                          create_subscription_row, create_task_rows, get_package_row, \
-                          get_generate_scope_filepaths, finalize_download_record, extract_event
-from ..services import metax
-from ..services.metax import get_dataset_modified_from_metax, \
-                             get_matching_project_identifier_from_metax, \
-                             get_matching_dataset_files_from_metax, \
-                             DatasetNotFound, UnexpectedStatusCode, \
-                             MissingFieldsInResponse, NoMatchingFilesFound
-from ..utils import convert_utc_timestamp, format_datetime, ida_service_is_offline, authenticate_trusted_service
+from ..services.cache import perform_housekeeping, get_datasets_dir, get_mock_notifications_dir
+from ..services.db import get_download_record_by_token, get_request_scopes, get_task_id_for_package, \
+                          create_download_record, create_request_scope, create_subscription_row, create_task_rows, get_package_row, \
+                          finalize_download_record, extract_event, update_package_generation_timestamps
+from ..services.metax import get_matching_project_identifier_from_metax, \
+                             DatasetNotFound, UnexpectedStatusCode, MissingFieldsInResponse, NoMatchingFilesFound
+from ..utils import normalize_timestamp, format_datetime, ida_service_is_offline, authenticate_trusted_service
 from ..model.requests import AuthorizePostData, DownloadQuerySchema, \
                              RequestsPostData, RequestsQuerySchema, SubscribePostData, \
                              MockNotifyPostData
@@ -210,12 +204,12 @@ def get_request():
     for task_row in task_rows:
         if not task_row['is_partial']:
             response['status'] = task_row['status']
-            response['initiated'] = format_datetime(task_row['initiated'])
+            response['initiated'] = normalize_timestamp(format_datetime(task_row['initiated']))
 
             if task_row['status'] == 'SUCCESS':
                 package_row = get_package_row(task_row['task_id'])
 
-                response['generated'] = format_datetime(task_row['date_done'])
+                response['generated'] = normalize_timestamp(format_datetime(task_row['date_done']))
                 response['package'] = package_row['filename']
                 response['size'] = package_row['size_bytes']
                 response['checksum'] = package_row['checksum']
@@ -230,12 +224,11 @@ def get_request():
                 partial_task = {
                     'scope': list(request_scope),
                     'status': task_row['status'],
-                    'initiated': format_datetime(task_row['initiated'])
+                    'initiated': normalize_timestamp(format_datetime(task_row['initiated']))
                 }
 
                 if task_row['status'] == 'SUCCESS':
-                    partial_task['generated'] = format_datetime(
-                        task_row['date_done'])
+                    partial_task['generated'] = normalize_timestamp(format_datetime(task_row['date_done']))
                     partial_task['package'] = package_row['filename']
                     partial_task['size'] = package_row['size_bytes']
                     partial_task['checksum'] = package_row['checksum']
@@ -333,7 +326,7 @@ def post_request():
     # Create new task if no such already exists
     if not task_row:
         from ..tasks import generate_task
-        housekeep_cache()
+
         task = generate_task.delay(
             dataset,
             project_identifier,
@@ -360,34 +353,32 @@ def post_request():
     response['created'] = created
 
     if not is_partial:
-        response['initiated'] = format_datetime(task_row['initiated'])
+        response['initiated'] = normalize_timestamp(format_datetime(task_row['initiated']))
         response['status'] = task_row['status']
 
         if task_row['status'] == 'SUCCESS':
             package_row = get_package_row(task_row['task_id'])
 
-            response['generated'] = format_datetime(task_row['date_done'])
+            response['generated'] = normalize_timestamp(format_datetime(task_row['date_done']))
             response['package'] = package_row['filename']
             response['size'] = package_row['size_bytes']
             response['checksum'] = package_row['checksum']
     else:
         partial_task = {
             'scope': request_scope,
-            'initiated': format_datetime(task_row['initiated']),
+            'initiated': normalize_timestamp(format_datetime(task_row['initiated'])),
             'status': task_row['status'],
         }
 
         if task_row['status'] == 'SUCCESS':
             package_row = get_package_row(task_row['task_id'])
 
-            partial_task['generated'] = format_datetime(task_row['date_done'])
+            partial_task['generated'] = normalize_timestamp(format_datetime(task_row['date_done']))
             partial_task['package'] = package_row['filename']
             partial_task['size'] = package_row['size_bytes']
             partial_task['checksum'] = package_row['checksum']
 
         response['partial'] = [partial_task]
-    if current_app.config["ALWAYS_RUN_HOUSEKEEPING_IN_REQUEST_ENDPOINT"]:
-        housekeep_cache()
     return jsonify(response)
 
 
@@ -640,18 +631,18 @@ def authorize():
     package = request_data.get('package')
 
     if package is None:
+
         filename = request_data.get('filename') 
+
         if filename is None:
             abort(400, 'Missing file parameter')
+
+        # Get the project identifier from metax based on the dataset and filename record; also verifies
+        # that file belongs to the specified dataset (raises exception if it does not)
         try:
             project_identifier = get_matching_project_identifier_from_metax(dataset, filename)
         except NoMatchingFilesFound as err:
-            abort(404, err)
-
-        # TODO: Add missing tests whether the file belongs to the specified dataset or the dataset has been
-        #       modified (invalidated) since the authorization. Currently possible to authorize files
-        #       which exist for the project but are not part of the dataset or when dataset is deprecated.
-        #       C.f. https://jira.eduuni.fi/browse/CSCFAIRDATA-289
+            abort(404, 'The specified file does not belong to the specified dataset')
 
         # Verify current_app.config
         current_app.logger.debug(current_app.config)
@@ -739,8 +730,6 @@ def download():
 
     current_app.logger.debug("GET /download: %s" % json.dumps(request.args))
 
-    event = {}
-
     try:
         request_data = DownloadQuerySchema().load(request.args)
     except ValidationError as err:
@@ -748,9 +737,6 @@ def download():
 
     # Read auth token from request parameters
     auth_token = request_data.get('token')
-
-    if current_app.config['ALWAYS_RUN_HOUSEKEEPING_IN_DOWNLOAD_ENDPOINT'] is True:
-        housekeep_cache()
 
     download_row = get_download_record_by_token(auth_token)
 
@@ -774,21 +760,26 @@ def download():
     dataset = jwt_payload['dataset']
     package = jwt_payload.get('package')
 
-    event["dataset"] = dataset
-
-    # TODO: Add missing test whether the dataset has been modified (invalidated) since the authorization,
-    #       and if so, return 4xx response. C.f. https://jira.eduuni.fi/browse/CSCFAIRDATA-212
-
     if package is None:
         # If the IDA service is offline, report the download service unavailable (for file downloads)
         if ida_service_is_offline(current_app):
             abort(503, 'The IDA service is offline. Individual file download is currently unavailable.')
 
         filepath = jwt_payload.get('file')
-        project_identifier = jwt_payload.get('project')
 
-        event["type"] = "FILE"
-        event["file"] = filepath
+        if filepath is None:
+            abort(400, 'Missing file parameter')
+
+        # Get the project identifier from metax based on the dataset and filename record; also verifies
+        # that file belongs to the specified dataset (raises exception if it does not)
+        try:
+            project_identifier = get_matching_project_identifier_from_metax(dataset, filepath)
+        except NoMatchingFilesFound as err:
+            abort(404, 'The specified file does not belong to the specified dataset')
+
+        # Ensure project associated with file matches the project specified in the authorizaiton token 
+        if project_identifier != jwt_payload.get('project'):
+            abort(409, 'File project does not match authorization token project')
 
         filename = path.join(
             current_app.config['IDA_DATA_ROOT'],
@@ -796,10 +787,6 @@ def download():
             'files',
             project_identifier,
             ) + filepath
-
-        # TODO: Add missing test whether the file belongs to the specified dataset, and if not, return
-        #       4xx response. It is currently possible to download guessed files which exist for the
-        #       project but are not part of the dataset. C.f. https://jira.eduuni.fi/browse/CSCFAIRDATA-289
 
     else:
         try:
@@ -840,6 +827,64 @@ def download():
         % (package or filepath.split('/')[-1])
     }
     return Response(stream_with_context(stream_response()), headers=response_headers)
+
+
+@download_api.route('/housekeep', methods=['POST'])
+def housekeep():
+    """
+    Internally available end point for initiating all package cache housekeeping.
+    """
+
+    current_app.logger.debug("POST /housekeep")
+
+    # Authenticate the trusted service making the request
+    try:
+        authenticate_trusted_service(current_app, request)
+    except PermissionError as err:
+        abort(401, str(err))
+
+    try:
+        status = perform_housekeeping()
+        return Response(status, mimetype='text/plain', status=200) 
+    except Exception as e:
+        return Response(str(e), mimetype='text/plain', status=500) 
+
+
+@download_api.route('/update_package_timestamps', methods=['POST'])
+def update_package_timestamps():
+    """
+    Internally available end point used by automated tests for updating the generation timestamps of a package
+    (not allowed in production environment)
+
+    Timestamp must be a string matching the format "YYYY-MM-DD hh:mm:ss"
+    """
+
+    if current_app.config.get("ENVIRONMENT") == "PRODUCTION":
+        return Response("Not permitted in production environment", mimetype='text/plain', status=405)
+
+    current_app.logger.debug("POST /update_package_timestamp")
+
+    # Authenticate the trusted service making the request
+    try:
+        authenticate_trusted_service(current_app, request)
+    except PermissionError as err:
+        abort(401, str(err))
+
+    request_data = request.get_json()
+    package = request_data.get('package')
+    timestamp  = request_data.get('timestamp')
+
+    if not package:
+        return Response("Missing required parameter 'package'", mimetype='text/plain', status=400)
+
+    if not timestamp:
+        return Response("Missing required parameter 'timestamp'", mimetype='text/plain', status=400) 
+
+    try:
+        update_package_generation_timestamps(package, timestamp)
+        return Response("Package %s generation timestamps updated as %s" % (package, timestamp), mimetype='text/plain', status=200) 
+    except Exception as e:
+        return Response("Failed to update package %s generation timestamps as %s: %s" % (package, timestamp, str(e)), mimetype='text/plain', status=500)
 
 
 @download_api.errorhandler(400)

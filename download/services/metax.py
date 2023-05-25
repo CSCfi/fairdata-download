@@ -143,6 +143,11 @@ def get_dataset_modified_from_metax(dataset_id):
 
 
 def get_matching_project_identifier_from_metax(dataset_id, filepath):
+    """
+    This function serves two purposes. It both ensures that the specified file belongs
+    to the specified dataset (raising NoMatchingFilesFound if not) and returns the
+    project to which the file belongs.
+    """
     try:
         metax_files_response = get_dataset_files(dataset_id)
     except ConnectionError:
@@ -158,6 +163,7 @@ def get_matching_project_identifier_from_metax(dataset_id, filepath):
         raise NoMatchingFilesFound(dataset_id)
 
     return matching_files[-1].get('project_identifier')
+
 
 def get_matching_dataset_files_from_metax(dataset_id, scope):
     try:
