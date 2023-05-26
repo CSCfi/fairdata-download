@@ -55,7 +55,7 @@ poetry add --dev {{ dependency }}
 poetry export --without-hashes -o requirements.txt
 
 # Update requirements-dev.txt
-poetry export --dev --without-hashes -o requirements.txt
+poetry export --dev --without-hashes -o requirements-dev.txt
 ```
 
 License

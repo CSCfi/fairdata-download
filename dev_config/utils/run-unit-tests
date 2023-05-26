@@ -14,5 +14,4 @@ source $UTILS/init-dev-script.sh
 cd $ROOT
 source venv/bin/activate
 
-coverage run -m pytest -W ignore::urllib3.exceptions.InsecureRequestWarning
-
+coverage run -m pytest -p no:warnings

@@ -148,8 +148,44 @@ def identify_invalid_packages(active_packages: List[Package]):
     invalid_packages = []
 
     for package in active_packages:
+
+        package_cache_pathname = os.path.join(get_datasets_dir(), package.filename)
+
+        # Check for packages which are missing the package file on disk
+        # (ghost package files on disk with no database record are handled separately)
         if current_app:
-            current_app.logger.debug("check dataset modification timestamp")
+            current_app.logger.debug("verify package file exists")
+        try:
+            # check package file exists on disk
+            if not os.path.exists(package_cache_pathname):
+                if current_app:
+                    current_app.logger.info("Package %s is invalid: package file missing from file system" % package.filename)
+                invalid_packages.append(package)
+        except Exception as e:
+            if current_app:
+                current_app.logger.error("Error checking file exists for package %s: %s" % (package.filename, str(e)))
+
+        # Check for packages which have zero file size either in database or on disk
+        if current_app:
+            current_app.logger.debug("verify package file size is not zero")
+        try:
+            # check package record file size not zero
+            if package.size_bytes == 0:
+                if current_app:
+                    current_app.logger.warn("Package %s is invalid: package file size recorded in database has zero size" % package.filename)
+                invalid_packages.append(package)
+            # check package file size on disk not zero
+            if os.path.getsize(package_cache_pathname) == 0:
+                if current_app:
+                    current_app.logger.warn("Package %s is invalid: package file in file system has zero size" % package.filename)
+                invalid_packages.append(package)
+        except Exception as e:
+            if current_app:
+                current_app.logger.error("Error checking file size for package %s: %s" % (package.filename, str(e)))
+
+        # Check for packages which are older than the dataset modification timestamp
+        if current_app:
+            current_app.logger.debug("verify package not older than dataset modification timestamp")
         try:
             package_generated = package.generated_at
             dataset_id = db.get_dataset_id_for_package(package.filename)
@@ -160,7 +196,7 @@ def identify_invalid_packages(active_packages: List[Package]):
                 current_app.logger.debug("Package generated: %s Dataset modified: %s" % (package_generated_ts, dataset_modified_ts))
             if package_generated < dataset_modified:
                 if current_app:
-                    current_app.logger.info("Package %s invalid as it was generated earlier (%s) than the dataset %s was last modified (%s)" % (
+                    current_app.logger.warn("Package %s is invalid: package generated earlier (%s) than the dataset %s was last modified (%s)" % (
                         package.filename,
                         package_generated_ts,
                         dataset_id,
@@ -169,7 +205,7 @@ def identify_invalid_packages(active_packages: List[Package]):
                 invalid_packages.append(package)
         except Exception as e:
             if current_app:
-                current_app.logger.debug("Error checking validity of package %s: %s" % (package.filename, str(e)))
+                current_app.logger.error("Error checking modification timestamps for package %s: %s" % (package.filename, str(e)))
 
     return invalid_packages
 
@@ -284,10 +320,8 @@ def remove_cache_files(files_list: List[Package] = None):
 
 def get_datasets_dir():
     cache_dir = os.path.join(current_app.config['DOWNLOAD_CACHE_DIR'], 'datasets')
-
     if not os.path.exists(cache_dir):
         os.makedirs(cache_dir)
-
     return cache_dir
 
 
@@ -301,7 +335,7 @@ def get_mock_notifications_dir():
 
 
 cache_cli = AppGroup(
-    "cache", help="Run maintentance operations against " "download cache."
+    "cache", help="Run maintentance operations against download cache"
 )
 
 

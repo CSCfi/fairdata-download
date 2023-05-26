@@ -86,7 +86,9 @@ def init_mq():
         'Initialized new message queue on %s' %
         (current_app.config['MQ_HOST'], ))
 
-mq_cli = AppGroup('mq', help='Run operations against message queue.')
+
+mq_cli = AppGroup('mq', help='Run operations against message queue')
+
 
 @mq_cli.command('init')
 def init_mq_command():

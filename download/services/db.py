@@ -389,16 +389,16 @@ def delete_package_rows(filenames):
         % (len(filenames)))
 
 
-def get_package_row(generated_by):
+def get_package(task_id):
     """
-    Returns row from package table for a given task.
+    Returns package record for a given task.
 
-    :param generated_by: ID of the task that initiated the package generation
+    :param task_id: ID of the task that initiated the package generation
     """
     db_conn = get_db()
     db_cursor = db_conn.cursor()
 
-    return db_cursor.execute('SELECT * FROM package WHERE generated_by = ?', (generated_by,)).fetchone()
+    return db_cursor.execute('SELECT * FROM package WHERE generated_by = ?', (task_id,)).fetchone()
 
 
 def get_generate_scope_filepaths(task_id):
@@ -410,12 +410,7 @@ def get_generate_scope_filepaths(task_id):
     db_conn = get_db()
     db_cursor = db_conn.cursor()
 
-    scope_rows = db_cursor.execute(
-        'SELECT filepath '
-        'FROM generate_scope '
-        'WHERE task_id = ?',
-        (task_id,)
-    ).fetchall()
+    scope_rows = db_cursor.execute('SELECT filepath FROM generate_scope WHERE task_id = ?', (task_id,)).fetchall()
 
     return set(map(lambda scope_row: scope_row['filepath'], scope_rows))
 
@@ -484,6 +479,21 @@ def update_package_generation_timestamps(package, timestamp):
     db_conn.commit()
 
 
+def update_package_file_size(package, size_bytes):
+    """
+    Updates the package record file size; used by automated testing.
+
+    :param package: Filename of the package whose task id is fetched
+    :param size_bytes: Integer size in bytes to be set
+    """
+    db_conn = get_db()
+    db_cursor = db_conn.cursor()
+
+    db_cursor.execute('UPDATE package SET size_bytes = ? WHERE filename = ?', (size_bytes, package))
+
+    db_conn.commit()
+
+
 def get_scope(task_id):
     """
     Determines and returns scope for the specified partial package generation task_id
@@ -541,7 +551,7 @@ def extract_event(download_id):
     return event
 
 
-db_cli = AppGroup('db', help='Run operations against database.')
+db_cli = AppGroup('db', help='Run operations against database')
 
 
 @db_cli.command('init')

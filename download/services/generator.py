@@ -30,10 +30,7 @@ def generate(dataset, project_identifier, scope, requestor_id):
     :param requestor_id: ID of task requesting file generation.
     """
 
-    output_filehandle, output_filename = tempfile.mkstemp(
-        suffix='.zip',
-        prefix=dataset + '_',
-        dir=get_datasets_dir())
+    output_filehandle, output_filename = tempfile.mkstemp(suffix='.zip', prefix=dataset + '_', dir=get_datasets_dir())
 
     # Before generating new package file, perform housekeeping on package cache
     try:
@@ -42,7 +39,7 @@ def generate(dataset, project_identifier, scope, requestor_id):
         current_app.logger.error("Error encountered while performing package cache housekeeping: %s" % str(err))
 
     # Generate file
-    current_app.logger.info("Generating download file for dataset '%s' with %s scoped files" % (dataset, len(scope)))
+    current_app.logger.info("Generating package file for dataset '%s' with %s scoped files" % (dataset, len(scope)))
 
     source_root = os.path.join(
         current_app.config['IDA_DATA_ROOT'],
@@ -57,14 +54,27 @@ def generate(dataset, project_identifier, scope, requestor_id):
                 filename = absolute_filename.replace(source_root, '')
                 if filename not in scope:
                     continue
-
-                current_app.logger.debug(
-                    "Adding '%s' to zip archive." % (filename,))
+                current_app.logger.debug("Adding '%s' to zip archive." % (filename,))
                 myzip.write(absolute_filename, arcname='.'+filename)
 
-    # Calculate file metadata
+    # If the IDA service is offline (having gone offline since generation of the package began), discard
+    # the generated package file (assume potentially corrupted)
+    if ida_service_is_offline(current_app):
+        current_app.logger.warn("IDA service offline. Discarding package file '%s' of size %s bytes." % (os.path.basename(output_filename), output_filesize))
+        os.remove(output_filename)
+        return
+
     output_filesize = os.path.getsize(output_filename)
 
+    # If the generated package file is zero sized, discard the generated package file
+    if output_filesize == 0:
+        current_app.logger.warn("Discarding empty package file '%s' of size %s bytes." % (os.path.basename(output_filename), output_filesize))
+        os.remove(output_filename)
+        return
+
+    current_app.logger.info("Generated package file '%s' of size %s bytes." % (os.path.basename(output_filename), output_filesize))
+
+    # Generate package file checksum
     sha256_hash = hashlib.sha256()
     with open(output_filename, "rb") as output_file:
         current_app.logger.debug("Calculating checksum.")
@@ -73,19 +83,9 @@ def generate(dataset, project_identifier, scope, requestor_id):
 
     output_checksum = 'sha256:' + sha256_hash.hexdigest()
 
-    # If the IDA service is offline (having gone offline since generation of the package began), discard
-    # the generated package file (assume potentially corrupted) and otherwise do nothing...
-    if ida_service_is_offline(current_app):
-        current_app.logger.warn("Discarding download file '%s' of size %s bytes." % (os.path.basename(output_filename), output_filesize))
-        os.remove(output_filename)
-        return
-
-    current_app.logger.info("Generated download file '%s' of size %s bytes." % (os.path.basename(output_filename), output_filesize))
-
-    # Insert package metadata to database
+    # Insert package metadata into database
     db_conn = get_db()
     db_cursor = db_conn.cursor()
-
     db_cursor.execute(
         "INSERT INTO package (filename, checksum, size_bytes, generated_by) "
         "VALUES (?, ?, ?, ?) ",
@@ -107,7 +107,7 @@ def generate(dataset, project_identifier, scope, requestor_id):
         current_app.logger.error("Error posting subscription notification: %s" % str(e))
 
 
-generator_cli = AppGroup('generator', help='Run download file generator operations.')
+generator_cli = AppGroup('generator', help='Run package file generator operations')
 
 
 @generator_cli.command('generate')
@@ -115,10 +115,11 @@ generator_cli = AppGroup('generator', help='Run download file generator operatio
 @option('--project_identifier', help='Project identifier matching dataset')
 @option('--scope', multiple=True, help='Scope for partial package generation')
 def generate_command(dataset, project_identifier, scope):
-    """Poll request from message queue and generate download file for requested
-    dataset.
+    """Poll request from message queue and generate package file for requested dataset.
 
     :param dataset: ID of dataset for which generated package files belong to
+    :param project_identifier: Project identifier matching dataset
+    :param scope: Scope for partial package generation, comma separated list of one or more pathnames
     """
     generate(dataset, project_identifier, scope, 'click')
 

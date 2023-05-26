@@ -20,4 +20,4 @@ export FLASK_APP
 cd $ROOT
 source $ROOT/venv/bin/activate
 
-flask cache $*
+flask db $*

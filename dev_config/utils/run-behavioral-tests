@@ -11,9 +11,8 @@ source $UTILS/init-dev-script.sh
 
 #--------------------------------------------------------------------------------
 
-$UTILS/run-unit-tests
-
-if [ $? -eq 0 ]; then
-    $UTILS/run-behavioral-tests
+if [ -f /var/ida/tests/run-tests ]; then
+    cd /var/ida
+    /var/ida/tests/run-tests tests.download
 fi
 

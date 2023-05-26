@@ -15,8 +15,8 @@ from requests.exceptions import ConnectionError
 from ..services import task_service
 from ..services.cache import perform_housekeeping, get_datasets_dir, get_mock_notifications_dir
 from ..services.db import get_download_record_by_token, get_request_scopes, get_task_id_for_package, \
-                          create_download_record, create_request_scope, create_subscription_row, create_task_rows, get_package_row, \
-                          finalize_download_record, extract_event, update_package_generation_timestamps
+                          create_download_record, create_request_scope, create_subscription_row, create_task_rows, get_package, \
+                          finalize_download_record, extract_event, update_package_generation_timestamps, update_package_file_size
 from ..services.metax import get_matching_project_identifier_from_metax, \
                              DatasetNotFound, UnexpectedStatusCode, MissingFieldsInResponse, NoMatchingFilesFound
 from ..utils import normalize_timestamp, format_datetime, ida_service_is_offline, authenticate_trusted_service
@@ -207,7 +207,7 @@ def get_request():
             response['initiated'] = normalize_timestamp(format_datetime(task_row['initiated']))
 
             if task_row['status'] == 'SUCCESS':
-                package_row = get_package_row(task_row['task_id'])
+                package_row = get_package(task_row['task_id'])
 
                 response['generated'] = normalize_timestamp(format_datetime(task_row['date_done']))
                 response['package'] = package_row['filename']
@@ -218,7 +218,7 @@ def get_request():
                 response['partial'] = []
 
             if task_row['status'] == 'SUCCESS':
-                package_row = get_package_row(task_row['task_id'])
+                package_row = get_package(task_row['task_id'])
 
             for request_scope in get_request_scopes(task_row['task_id']):
                 partial_task = {
@@ -357,7 +357,7 @@ def post_request():
         response['status'] = task_row['status']
 
         if task_row['status'] == 'SUCCESS':
-            package_row = get_package_row(task_row['task_id'])
+            package_row = get_package(task_row['task_id'])
 
             response['generated'] = normalize_timestamp(format_datetime(task_row['date_done']))
             response['package'] = package_row['filename']
@@ -371,7 +371,7 @@ def post_request():
         }
 
         if task_row['status'] == 'SUCCESS':
-            package_row = get_package_row(task_row['task_id'])
+            package_row = get_package(task_row['task_id'])
 
             partial_task['generated'] = normalize_timestamp(format_datetime(task_row['date_done']))
             partial_task['package'] = package_row['filename']
@@ -541,7 +541,7 @@ def post_mock_notify():
 
     subscription_data = request_data.get('subscription_data')
 
-    if not subscription_data:
+    if subscription_data is None:
         return jsonify({
             'error': 'subscriptionData not defined',
         }), 400
@@ -856,7 +856,8 @@ def update_package_timestamps():
     Internally available end point used by automated tests for updating the generation timestamps of a package
     (not allowed in production environment)
 
-    Timestamp must be a string matching the format "YYYY-MM-DD hh:mm:ss"
+    :param package: the unique filename of the package
+    :param timestamp: a datetime string matching the format "YYYY-MM-DD hh:mm:ss"
     """
 
     if current_app.config.get("ENVIRONMENT") == "PRODUCTION":
@@ -874,10 +875,10 @@ def update_package_timestamps():
     package = request_data.get('package')
     timestamp  = request_data.get('timestamp')
 
-    if not package:
+    if package is None:
         return Response("Missing required parameter 'package'", mimetype='text/plain', status=400)
 
-    if not timestamp:
+    if timestamp is None:
         return Response("Missing required parameter 'timestamp'", mimetype='text/plain', status=400) 
 
     try:
@@ -885,6 +886,44 @@ def update_package_timestamps():
         return Response("Package %s generation timestamps updated as %s" % (package, timestamp), mimetype='text/plain', status=200) 
     except Exception as e:
         return Response("Failed to update package %s generation timestamps as %s: %s" % (package, timestamp, str(e)), mimetype='text/plain', status=500)
+
+
+@download_api.route('/update_package_file_size', methods=['POST'])
+def update_package_size():
+    """
+    Internally available end point used by automated tests for updating the file size defined in a package record
+    (not allowed in production environment)
+
+    :param package: the unique filename of the package
+    :param size_bytes: integer size in bytes to be set
+    """
+
+    if current_app.config.get("ENVIRONMENT") == "PRODUCTION":
+        return Response("Not permitted in production environment", mimetype='text/plain', status=405)
+
+    current_app.logger.debug("POST /update_package_file_size")
+
+    # Authenticate the trusted service making the request
+    try:
+        authenticate_trusted_service(current_app, request)
+    except PermissionError as err:
+        abort(401, str(err))
+
+    request_data = request.get_json()
+    package = request_data.get('package')
+    size_bytes = request_data.get('size_bytes')
+
+    if package is None:
+        return Response("Missing required parameter 'package'", mimetype='text/plain', status=400)
+
+    if size_bytes is None:
+        return Response("Missing required parameter 'size_bytes'", mimetype='text/plain', status=400) 
+
+    try:
+        update_package_file_size(package, size_bytes)
+        return Response("Package %s file size updated as %s" % (package, str(size_bytes)), mimetype='text/plain', status=200) 
+    except Exception as e:
+        return Response("Failed to update package %s file size as %s: %s" % (package, str(size_bytes), str(e)), mimetype='text/plain', status=500)
 
 
 @download_api.errorhandler(400)
