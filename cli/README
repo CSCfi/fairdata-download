@@ -1,0 +1,18 @@
+The scripts in this directory provide command line interfaces to admin
+and housekeeping functionality of the Download Service.
+
+If the following environment variables are defined, the specified paths
+will be used, else they will default to the paths indicated:
+
+DOWNLOAD_SERVICE_SETTINGS   (default: "$ROOT/dev_config/settings.cfg")
+DOWNLOAD_SERVICE_VENV       (default: "$ROOT/venv")
+
+where $ROOT corresponds to the root of the deployed service.
+
+---
+
+It is recommended that the following command be configured as a cron
+job which is executed at least nightly, but also could be executed as
+frequently as hourly:
+
+    $ROOT/cli/cache-cli housekeep

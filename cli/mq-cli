@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+#--------------------------------------------------------------------------------
+
+SCRIPT="$(realpath $0)"
+SCRIPT_NAME=`basename $SCRIPT`
+CLI=`dirname "$SCRIPT"`
+
+source $CLI/init-cli-script.sh
+source $DOWNLOAD_SERVICE_VENV/bin/activate
+
+flask mq $*
