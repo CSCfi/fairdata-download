@@ -1,12 +1,16 @@
+import os
+import time
 import json
 import pytest
-
 from datetime import datetime, timedelta
 from jwt import decode, encode, ExpiredSignatureError
 from jwt.exceptions import DecodeError
 from requests.exceptions import ConnectionError
-
 from download.services.metax import UnexpectedStatusCode
+
+os.environ["TZ"] = "UTC"
+time.tzset()
+
 
 @pytest.fixture
 def client(flask_app):

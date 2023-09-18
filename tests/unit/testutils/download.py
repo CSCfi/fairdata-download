@@ -1,14 +1,14 @@
 import json
 import os
-
 from download.services import db
+
 
 def create_dataset(flask_app, descriptor):
     dataset = inject_database_records(flask_app, descriptor)
     # inject_ida_file(flask_app, descriptor)
     inject_cache_file(flask_app, dataset)
-
     return dataset
+
 
 def get_test_data(table_name, descriptor):
     test_data_file = "tests/unit/test_data/download_db/%s/%s.json" % (table_name, descriptor)
@@ -16,6 +16,7 @@ def get_test_data(table_name, descriptor):
         with open(test_data_file, "r") as test_data:
             return json.loads(test_data.read())
     return None
+
 
 def inject_database_records(flask_app, descriptor):
     dataset = {}
@@ -122,6 +123,7 @@ def inject_database_records(flask_app, descriptor):
 
     return dataset
 
+
 def inject_ida_file(flask_app, dataset):
     test_dir = os.path.join(flask_app.config['IDA_DATA_ROOT'], dataset['dataset'])
     if not os.path.exists(test_dir):
@@ -130,6 +132,7 @@ def inject_ida_file(flask_app, dataset):
       test_file = test_dir + filepath
       with open(test_file, 'w+') as f:
           f.write('test')
+
 
 def inject_cache_file(flask_app, dataset):
     if 'package' in dataset.keys():

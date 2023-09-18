@@ -29,18 +29,16 @@
 """
 import os
 import pendulum
-
+import logging
 from dataclasses import asdict
 from typing import List
 from flask import current_app
 from flask.cli import AppGroup
 from tabulate import tabulate
-
 from . import db
 from . import metax
 from ..dto import Package
-from ..utils import normalize_timestamp
-
+from ..utils import normalize_timestamp, normalize_logging
 
 GB = 1073741824
 
@@ -187,22 +185,24 @@ def identify_invalid_packages(active_packages: List[Package]):
         if current_app:
             current_app.logger.debug("verify package not older than dataset modification timestamp")
         try:
-            package_generated = package.generated_at
             dataset_id = db.get_dataset_id_for_package(package.filename)
+            package_generated = normalize_timestamp(package.generated_at)
             dataset_modified = metax.get_dataset_modified_from_metax(dataset_id)
-            package_generated_ts = normalize_timestamp(package_generated.strftime("%Y-%m-%dT%H:%M:%S%z"))
-            dataset_modified_ts = normalize_timestamp(dataset_modified.strftime("%Y-%m-%dT%H:%M:%S%z"))
             if current_app:
-                current_app.logger.debug("Package generated: %s Dataset modified: %s" % (package_generated_ts, dataset_modified_ts))
+                current_app.logger.debug("Package generated: %s Dataset modified: %s" % (package_generated, dataset_modified))
             if package_generated < dataset_modified:
                 if current_app:
                     current_app.logger.warn("Package %s is invalid: package generated earlier (%s) than the dataset %s was last modified (%s)" % (
                         package.filename,
-                        package_generated_ts,
+                        package_generated,
                         dataset_id,
-                        dataset_modified_ts
+                        dataset_modified
                     ))
                 invalid_packages.append(package)
+        except metax.DatasetNotFound:
+            if current_app:
+                current_app.logger.warn("Package %s is invalid: dataset not found in Metax" % package.filename)
+            invalid_packages.append(package)
         except Exception as e:
             if current_app:
                 current_app.logger.error("Error checking modification timestamps for package %s: %s" % (package.filename, str(e)))
@@ -374,4 +374,5 @@ def init_app(app):
 
     :param app: Flask application to hook module into.
     """
+    normalize_logging(app)
     app.cli.add_command(cache_cli)

@@ -5,6 +5,10 @@
     Module for views used by Fairdata Download Service.
 """
 import json
+import requests
+import urllib.parse
+import urllib3
+import secrets
 from datetime import datetime, timedelta
 from marshmallow import ValidationError
 from os import path
@@ -19,17 +23,13 @@ from ..services.db import get_download_record_by_token, get_request_scopes, get_
                           finalize_download_record, extract_event, update_package_generation_timestamps, update_package_file_size
 from ..services.metax import get_matching_project_identifier_from_metax, \
                              DatasetNotFound, UnexpectedStatusCode, MissingFieldsInResponse, NoMatchingFilesFound
-from ..utils import normalize_timestamp, format_datetime, ida_service_is_offline, authenticate_trusted_service
+from ..utils import normalize_timestamp, ida_service_is_offline, authenticate_trusted_service
 from ..model.requests import AuthorizePostData, DownloadQuerySchema, \
                              RequestsPostData, RequestsQuerySchema, SubscribePostData, \
                              MockNotifyPostData
 from ..events import construct_event_title
 
-import requests
-import urllib.parse
-import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
 
 download_api = Blueprint('download-api', __name__)
 
@@ -204,12 +204,12 @@ def get_request():
     for task_row in task_rows:
         if not task_row['is_partial']:
             response['status'] = task_row['status']
-            response['initiated'] = normalize_timestamp(format_datetime(task_row['initiated']))
+            response['initiated'] = normalize_timestamp(task_row['initiated'])
 
             if task_row['status'] == 'SUCCESS':
                 package_row = get_package(task_row['task_id'])
 
-                response['generated'] = normalize_timestamp(format_datetime(task_row['date_done']))
+                response['generated'] = normalize_timestamp(task_row['date_done'])
                 response['package'] = package_row['filename']
                 response['size'] = package_row['size_bytes']
                 response['checksum'] = package_row['checksum']
@@ -224,11 +224,11 @@ def get_request():
                 partial_task = {
                     'scope': list(request_scope),
                     'status': task_row['status'],
-                    'initiated': normalize_timestamp(format_datetime(task_row['initiated']))
+                    'initiated': normalize_timestamp(task_row['initiated'])
                 }
 
                 if task_row['status'] == 'SUCCESS':
-                    partial_task['generated'] = normalize_timestamp(format_datetime(task_row['date_done']))
+                    partial_task['generated'] = normalize_timestamp(task_row['date_done'])
                     partial_task['package'] = package_row['filename']
                     partial_task['size'] = package_row['size_bytes']
                     partial_task['checksum'] = package_row['checksum']
@@ -353,27 +353,27 @@ def post_request():
     response['created'] = created
 
     if not is_partial:
-        response['initiated'] = normalize_timestamp(format_datetime(task_row['initiated']))
+        response['initiated'] = normalize_timestamp(task_row['initiated'])
         response['status'] = task_row['status']
 
         if task_row['status'] == 'SUCCESS':
             package_row = get_package(task_row['task_id'])
 
-            response['generated'] = normalize_timestamp(format_datetime(task_row['date_done']))
+            response['generated'] = normalize_timestamp(task_row['date_done'])
             response['package'] = package_row['filename']
             response['size'] = package_row['size_bytes']
             response['checksum'] = package_row['checksum']
     else:
         partial_task = {
             'scope': request_scope,
-            'initiated': normalize_timestamp(format_datetime(task_row['initiated'])),
+            'initiated': normalize_timestamp(task_row['initiated']),
             'status': task_row['status'],
         }
 
         if task_row['status'] == 'SUCCESS':
             package_row = get_package(task_row['task_id'])
 
-            partial_task['generated'] = normalize_timestamp(format_datetime(task_row['date_done']))
+            partial_task['generated'] = normalize_timestamp(task_row['date_done'])
             partial_task['package'] = package_row['filename']
             partial_task['size'] = package_row['size_bytes']
             partial_task['checksum'] = package_row['checksum']
@@ -644,9 +644,6 @@ def authorize():
         except NoMatchingFilesFound as err:
             abort(404, 'The specified file does not belong to the specified dataset')
 
-        # Verify current_app.config
-        current_app.logger.debug(current_app.config)
-
         # Create JWT
         jwt_payload = {
             'exp': datetime.utcnow() + timedelta(minutes=current_app.config['JWT_TTL']),
@@ -670,9 +667,6 @@ def authorize():
         except task_service.PackageOutdated as err:
             abort(409, err)
 
-        # Verify current_app.config
-        current_app.logger.debug(current_app.config)
-
         # Create JWT
         jwt_payload = {
             'exp': datetime.utcnow() + timedelta(minutes=current_app.config['JWT_TTL']),
@@ -691,7 +685,18 @@ def authorize():
 
         jwt_payload['generated_by'] = get_task_id_for_package(package)
 
+    # In very rare cases, two tokens can be generated during the same second of time (e.g. automated tests)
+    # which can result in multiple encrypted JWT token strings that are lexically identical, having the same
+    # expiration timestamp and other payload details, which causes an unintended conflict with the single use
+    # token policy, so we add random salt to the token payload so that the encrypted token strings are garunteed
+    # to be lexically unique and no single-use collisions occur. This randomized salt value is otherwise ignored.
+    # If the single-use restriction is removed, this salt value can be safely omitted.
+
+    jwt_payload['random_salt'] = secrets.token_hex(4)
+
     jwt_token = encode(jwt_payload, current_app.config['JWT_SECRET'], algorithm=current_app.config['JWT_ALGORITHM'])
+
+    current_app.logger.debug("GET /authorize token: %s" % jwt_token)
 
     return jsonify(token=jwt_token.decode())
 
@@ -741,6 +746,7 @@ def download():
     download_row = get_download_record_by_token(auth_token)
 
     if download_row is not None:
+        current_app.logger.debug("Token exists in db: %s" % download_row['token'])
         current_app.logger.info('Received download request with used token.')
         abort(401)
 

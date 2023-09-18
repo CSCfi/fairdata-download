@@ -1,5 +1,11 @@
+import os
+import time
 import pytest
 import requests
+
+os.environ["TZ"] = "UTC"
+time.tzset()
+
 
 @pytest.mark.usefixtures("mock_celery_inspect", "mock_get_mq")
 class TestGetHealthCheck:

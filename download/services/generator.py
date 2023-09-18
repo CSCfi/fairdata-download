@@ -6,18 +6,17 @@
 """
 import hashlib
 import os
+import time
 import sys
 import requests
 import tempfile
 from zipfile import ZipFile, ZIP_DEFLATED
-
 from click import option
 from flask import current_app
 from flask.cli import AppGroup
-
 from .cache import get_datasets_dir, perform_housekeeping
 from .db import get_db, get_subscription_rows, delete_subscription_rows
-from ..utils import ida_service_is_offline
+from ..utils import ida_service_is_offline, normalize_logging
 
 
 def generate(dataset, project_identifier, scope, requestor_id):
@@ -129,4 +128,5 @@ def init_app(app):
 
     :param app: Flask application to hook module into.
     """
+    normalize_logging(app)
     app.cli.add_command(generator_cli)

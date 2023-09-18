@@ -4,16 +4,19 @@ download.db
 
 Database module for Fairdata Download Service.
 """
-from os import path
+import os
 import sqlite3
 import json
 import click
 import pendulum
+import dateutil.parser
+import logging
+from datetime import datetime
 from flask import current_app, g
 from flask.cli import AppGroup
 from jwt import decode
 from ..dto import Package
-from ..utils import normalize_timestamp
+from ..utils import normalize_timestamp, normalize_logging
 
 
 def get_db():
@@ -23,7 +26,7 @@ def get_db():
     init_schema = False
 
     if 'db' not in g:
-        if not path.isfile(current_app.config['DATABASE_FILE']):
+        if not os.path.isfile(current_app.config['DATABASE_FILE']):
             init_schema = True
 
         g.db = sqlite3.connect(
@@ -127,7 +130,7 @@ def get_request_scopes(task_id):
     return request_scopes
 
 
-def get_task_rows(dataset_id, initiated_after=''):
+def get_task_rows(dataset_id, initiated_after='1970-01-01 00:00:00'):
     """
     Returns a rows from file_generate table for a dataset.
 
@@ -136,6 +139,13 @@ def get_task_rows(dataset_id, initiated_after=''):
     """
     db_conn = get_db()
     db_cursor = db_conn.cursor()
+
+    if isinstance(initiated_after, str):
+        initiated_after = datetime.utcfromtimestamp(dateutil.parser.parse(initiated_after).timestamp())
+    elif isinstance(initiated_after, float) or isinstance(initiated_after, int):
+        initiated_after = datetime.utcfromtimestamp(initiated_after)
+    elif not isinstance(initiated_after, datetime):
+        raise Exception("Invalid timestamp value")
 
     return db_cursor.execute(
         'SELECT initiated, date_done, task_id, status, is_partial '
@@ -354,21 +364,22 @@ def get_active_packages():
 
     packages = []
     for row in q:
-        filename = str(row["filename"])
-        size_bytes = int(row["size_bytes"])
-        generated_at = row["generated_at"]
-        last_downloaded = row["last_downloaded"]
-        no_downloads = int(row["no_downloads"])
-        datetimes = {"generated_at": generated_at, "last_downloaded": last_downloaded}
+        filename = str(row['filename'])
+        size_bytes = int(row['size_bytes'])
+        no_downloads = int(row['no_downloads'])
+        generated_at = row['generated_at']
+        last_downloaded = row['last_downloaded']
+        datetimes = {'generated_at': generated_at, 'last_downloaded': last_downloaded}
         converted = {}
         for k, v in datetimes.items():
             if isinstance(v, str):
-                if "." in v:
-                    a = v.split(".")
+                if '.' in v:
+                    a = v.split('.')
                     v = a[0]
-                converted[k] = pendulum.from_format(v, "YYYY-MM-DD HH:mm:ss")
+                converted[k] = pendulum.from_format(v, 'YYYY-MM-DD HH:mm:ss')
             elif isinstance(v, int):
-                converted[k] = pendulum.from_timestamp(v / 1e3)  # sqlite microsecond timestamp
+                # legacy value
+                converted[k] = pendulum.from_timestamp(v / 1e3)  # sqlite millisecond timestamp
         packages.append(Package(filename, size_bytes, no_downloads, **converted))
     return packages
 
@@ -467,15 +478,22 @@ def update_package_generation_timestamps(package, timestamp):
     Updates the package task record initiated and generated timestamps; used by automated testing.
 
     :param package: Filename of the package whose task id is fetched
-    :param timestamp: Timestamp string to be recorded, matching the format "YYYY-MM-DD hh:mm:ss"
+    :param timestamp: Timestamp string to be recorded
     """
+
+    # Ensure input timestamp is in ISO 8601 UTC format "YYYY-MM-DDThh:mm:ssZ"
+    timestamp = normalize_timestamp(timestamp)
+
+    # Convert normalized timestamp to the sqlite format "YYYY-MM-DD hh:mm:ss"
+    sqlite_timestamp = "%s %s" % (timestamp[:10], timestamp[11:-1])
+
     db_conn = get_db()
     db_cursor = db_conn.cursor()
 
     task_id = get_task_id_for_package(package)
 
-    db_cursor.execute('UPDATE generate_task SET initiated = ?, date_done = ? WHERE task_id = ?', (timestamp, timestamp, task_id))
-
+    db_cursor.execute('UPDATE generate_task SET initiated = ?, date_done = ? WHERE task_id = ?',
+                      (sqlite_timestamp, sqlite_timestamp, task_id))
     db_conn.commit()
 
 
@@ -566,5 +584,6 @@ def init_app(app):
 
     :param app: Flask application to hook the module into
     """
+    normalize_logging(app)
     app.teardown_appcontext(close_db)
     app.cli.add_command(db_cli)

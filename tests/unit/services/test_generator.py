@@ -1,3 +1,10 @@
+import os
+import time
+
+os.environ["TZ"] = "UTC"
+time.tzset()
+
+
 def test_generate_not_found_task(runner, not_found_task):
     result = runner.invoke(args=[
         'generator',
@@ -8,6 +15,7 @@ def test_generate_not_found_task(runner, not_found_task):
         ])
 
     assert not result.exception
+
 
 def test_generate_pending_task(runner, pending_task):
     result = runner.invoke(args=[

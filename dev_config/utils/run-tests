@@ -16,4 +16,3 @@ $UTILS/run-unit-tests
 if [ $? -eq 0 ]; then
     $UTILS/run-behavioral-tests
 fi
-

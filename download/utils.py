@@ -5,45 +5,55 @@
     Utility module for Fairdata Download Service.
 """
 import os
-import pytz
+import time
+import logging
 import dateutil.parser
 from datetime import datetime
+from gunicorn import glogging    
+from celery import Celery
+from celery.signals import after_setup_logger
+
+os.environ["TZ"] = "UTC"
+time.tzset()
+
+LOG_ENTRY_FORMAT = '%(asctime)s (%(process)d) %(levelname)s %(message)s'
+TIMESTAMP_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
+
+
+@after_setup_logger.connect
+def normalize_celery_logging(logger, *args, **kwargs):
+    for handler in logger.handlers:
+        handler.setFormatter(logging.Formatter(LOG_ENTRY_FORMAT, TIMESTAMP_FORMAT))
+
+
+def normalize_logging(app = None):
+    os.environ["TZ"] = "UTC"
+    time.tzset()
+    loggers = [logging.getLogger()]  # get the root logger
+    loggers = loggers + [logging.getLogger(name) for name in logging.root.manager.loggerDict]
+    loggers = loggers + glogging.loggers()
+    if app:
+        loggers.append(app.logger)
+    for logger in loggers:
+        for handler in logger.handlers:
+            handler.setFormatter(logging.Formatter(LOG_ENTRY_FORMAT, TIMESTAMP_FORMAT))
 
 
 def normalize_timestamp(timestamp):
     """
-    Returns the input Posix or ISO timestamp string as a normalized ISO UTC timestamp YYYY-MM-DDThh:mm:ssZ
+    Returns the input timestamp as a normalized ISO 8601 UTC timestamp string YYYY-MM-DDThh:mm:ssZ
     """
-    try:
-        return datetime.utcfromtimestamp(dateutil.parser.parse(timestamp).timestamp()).strftime("%Y-%m-%dT%H:%M:%SZ")
-    except TypeError:
-        return None
 
+    # Sniff the input timestamp value and convert to a UTC datetime instance as needed
+    if isinstance(timestamp, str):
+        timestamp = datetime.utcfromtimestamp(dateutil.parser.parse(timestamp).timestamp())
+    elif isinstance(timestamp, float) or isinstance(timestamp, int):
+        timestamp = datetime.utcfromtimestamp(timestamp)
+    elif not isinstance(timestamp, datetime):
+        raise Exception("Invalid timestamp value")
 
-def convert_utc_timestamp(utc_timestamp):
-    """Converts a string from UTC naive form to UTC localtime.
-
-    :param utc_timestamp: UTC naive timestamp string to be formatted in local
-                          timezone
-    """
-    return datetime.fromisoformat(utc_timestamp + '+00:00').astimezone()
-
-
-def convert_timestamp_to_utc(timestamp):
-    """Converts a string from UTC naive form to UTC localtime.
-
-    :param timestamp: Timestamp in an arbitrary timezone
-    """
-    return datetime.fromisoformat(timestamp).astimezone(pytz.utc)
-
-
-def format_datetime(utc_timestamp):
-    """Formats given timestamp to the form returned by the Download Service.
-
-    :param iso_datetime: UTC naive timestamp string to be formatted in local
-                         timezone
-    """
-    return convert_utc_timestamp(utc_timestamp).isoformat(timespec='seconds')
+    # Return the normalized ISO UTC timestamp string
+    return timestamp.strftime(TIMESTAMP_FORMAT)
 
 
 def startswithpath(prefix, filepath, sep='/'):

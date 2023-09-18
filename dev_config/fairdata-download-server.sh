@@ -3,8 +3,11 @@
 # This script is only used for Docker development
 #--------------------------------------------------------------------------------
 
+TZ="UTC"
+
 source /opt/fairdata/fairdata-download-service/dev_config/fairdata-download-server.env
 
+export TZ
 export FLASK_APP
 export FLASK_DEBUG
 export DOWNLOAD_SERVICE_SETTINGS
@@ -15,6 +18,7 @@ if [ "$DEBUG" = "true" ]; then
     echo "DOWNLOAD_SERVICE_SETTINGS: $DOWNLOAD_SERVICE_SETTINGS"
     echo "GUNICORN_BIN:              $GUNICORN_BIN"
     echo "GUNICORN_CONF:             $GUNICORN_CONF"
+    echo "GUNICORN_LOGGING_CONF:     $GUNICORN_LOGGING_CONF"
 fi
 
 cd /opt/fairdata/fairdata-download-service

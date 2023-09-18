@@ -4,12 +4,17 @@
 
     Celery application module for Fairdata Download Service.
 """
+import os
+import time
 from celery import Celery, Task
 from flask import current_app
-
 from . import create_flask_app
 from .services.generator import generate
-from .utils import ida_service_is_offline
+from .utils import ida_service_is_offline, normalize_logging
+
+os.environ["TZ"] = "UTC"
+time.tzset()
+
 
 def create_celery_app(app=None):
     """Celery application factory. Hooks task execution into Flask application
@@ -23,6 +28,9 @@ def create_celery_app(app=None):
     :param app: Flask application to hook celery application into
     """
     app = app or create_flask_app()
+ 
+    normalize_logging(app)
+
     class ContextTask(Task):
         """Superclass for binding Celery class task execution to Flask
         application context.
@@ -51,7 +59,9 @@ def create_celery_app(app=None):
 
     return celery
 
+
 celery_app = create_celery_app()
+
 
 @celery_app.task(name='generate-task', track_started=True, bind=True)
 def generate_task(self, dataset, project_identifier, scope):

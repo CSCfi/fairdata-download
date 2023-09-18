@@ -36,16 +36,16 @@ Download Service settings can be specified with a settings file referenced by
 Sample configuration below:
 
 ```
-MQ_HOST = 'rabbitmq'
+MQ_HOST='rabbitmq'
 
-DOWNLOAD_CACHE_DIR = '/app/data/download-cache'
-IDA_DATA_ROOT = '/app/data/ida-data'
+DOWNLOAD_CACHE_DIR='/app/data/download-cache'
+IDA_DATA_ROOT='/app/data/ida-data'
 
-DATABASE_FILE = '/app/data/download.db'
+DATABASE_FILE='/app/data/download.db'
 
-METAX_URL = 'https://metax.fairdata.fi/'
-METAX_USER = 'download'
-METAX_PASS = '<download-password>'
+METAX_URL='https://metax.fairdata.fi/v3/'
+METAX_USER='download'
+METAX_PASS='<download-password>'
 ```
 
 ## Download E2E settings

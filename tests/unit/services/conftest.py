@@ -1,8 +1,15 @@
+import os
+import time
 import pytest
+
+os.environ["TZ"] = "UTC"
+time.tzset()
+
 
 @pytest.fixture
 def runner(flask_app):
     return flask_app.test_cli_runner()
+
 
 @pytest.fixture
 def mock_init_db(monkeypatch, recorder):
@@ -10,6 +17,7 @@ def mock_init_db(monkeypatch, recorder):
         recorder.called = True
 
     monkeypatch.setattr('download.services.db.init_db', fake_init_db)
+
 
 @pytest.fixture
 def mock_init_mq(monkeypatch, recorder):

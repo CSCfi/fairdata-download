@@ -1,0 +1,47 @@
+[
+  {
+    "id": 31586500,
+    "storage_service": "ida",
+    "storage_identifier": "5db6lenbrblisseslg6480f30485408",
+    "project": "2009999",
+    "pathname": "/test1/file1.txt",
+    "filename": "file1.txt",
+    "format": "txt",
+    "size": 237157,
+    "checksum": "sha256:572abab662eac1de3a729ba7adb2c57f3cfcc3562c1d8e1dd144a24405beca1c",
+    "user": "example@example",
+    "modified": "2019-10-24T16:59:54+03:00",
+    "frozen": "2019-10-28T13:21:57+02:00",
+    "removed": null
+  },
+  {
+    "id": 31586500,
+    "storage_service": "ida",
+    "storage_identifier": "5db6lenbrblisseslg6480f30485408",
+    "project": "2009999",
+    "pathname": "/test2/file2.txt",
+    "filename": "file2.txt",
+    "format": "txt",
+    "size": 237157,
+    "checksum": "sha256:572abab662eac1de3a729ba7adb2c57f3cfcc3562c1d8e1dd144a24405beca1c",
+    "user": "example@example",
+    "modified": "2019-10-24T16:59:54+03:00",
+    "frozen": "2019-10-28T13:21:57+02:00",
+    "removed": null
+  },
+  {
+    "id": 31586500,
+    "storage_service": "ida",
+    "storage_identifier": "5dwelseselghsseslg6480f30485408",
+    "project": "2009999",
+    "pathname": "/test2/file3.txt",
+    "filename": "file3.txt",
+    "format": "txt",
+    "size": 237157,
+    "checksum": "sha256:572abab662eac1de3a729ba7adb2c57f3cfcc3562c1d8e1dd144a24405beca1c",
+    "user": "example@example",
+    "modified": "2019-10-24T16:59:54+03:00",
+    "frozen": "2019-10-28T13:21:57+02:00",
+    "removed": null
+  } 
+]

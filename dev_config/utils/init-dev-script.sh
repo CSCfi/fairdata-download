@@ -10,6 +10,8 @@ if [ "$ID" != "root" ]; then
     exit 1
 fi
 
+#DEBUG="true" # TEMP HACK
+
 SCRIPT="$(realpath $0)"
 UTILS=`dirname "$SCRIPT"`
 DEV=`dirname "$UTILS"`
@@ -38,13 +40,24 @@ if [ "$ENVIRONMENT" != "DEV" ]; then
     fi
 fi
 
-if [ "$DEBUG" = "true" ]; then
-    echo "ENVIRONMENT: $ENVIRONMENT"
-    echo "SETTINGS:    $DOWNLOAD_SERVICE_SETTINGS"
-    echo "SCRIPT:      $SCRIPT"
-    echo "ROOT:        $ROOT"
-    echo "UTILS:       $UTILS"
+METAX_VERSION=$(echo "$METAX_URL" | grep '/v3/')
+if [ -n "$METAX_VERSION" ]; then
+    METAX_VERSION=3
+else
+    METAX_VERSION=1
 fi
 
+if [ "$DEBUG" = "true" ]; then
+    echo "ENVIRONMENT:   $ENVIRONMENT"
+    echo "SETTINGS:      $DOWNLOAD_SERVICE_SETTINGS"
+    echo "SCRIPT:        $SCRIPT"
+    echo "ROOT:          $ROOT"
+    echo "UTILS:         $UTILS"
+    echo "METAX_URL:     $METAX_URL"
+    echo "METAX_VERSION: $METAX_VERSION"
+fi
+
+export METAX_URL
+export METAX_VERSION
 export DOWNLOAD_SERVICE_SETTINGS
 export TRUSTED_SERVICE_TOKEN

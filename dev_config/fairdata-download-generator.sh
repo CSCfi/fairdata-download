@@ -3,8 +3,11 @@
 # This script is only used for local and Docker development
 #--------------------------------------------------------------------------------
 
+TZ="UTC"
+
 source /opt/fairdata/fairdata-download-service/dev_config/fairdata-download-generator.env
 
+export TZ
 export FLASK_APP
 export FLASK_DEBUG
 export DOWNLOAD_SERVICE_SETTINGS

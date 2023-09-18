@@ -4,16 +4,19 @@
 
     Package generation task service.
 """
+import os
+import time
 from requests.exceptions import ConnectionError
-
 from .. import utils
 from . import db, metax, cache
+from .metax import DatasetNotFound, MissingFieldsInResponse, NoMatchingFilesFound, UnexpectedStatusCode
 
-from .metax import DatasetNotFound, MissingFieldsInResponse, NoMatchingFilesFound, \
-                   UnexpectedStatusCode
+os.environ["TZ"] = "UTC"
+time.tzset()
 
 
 class NoActiveTasksFound(Exception):
+
     def __init__(self, *args):
         if args[0]:
             self.dataset = args[0]
@@ -24,6 +27,7 @@ class NoActiveTasksFound(Exception):
 
 
 class NoDatabaseRecordForPackageFound(Exception):
+
     def __init__(self, *args):
         if args[0]:
             self.package = args[0]
@@ -34,6 +38,7 @@ class NoDatabaseRecordForPackageFound(Exception):
 
 
 class PackageOutdated(Exception):
+
     def __init__(self, *args):
         if args[0]:
             self.dataset = args[0]
@@ -140,18 +145,21 @@ def check_if_package_can_be_downloaded(dataset_id, package):
     """
 
     # Check if package generation task can be found in database
+
     task_row = db.get_task(package)
 
     if task_row is None:
         # A package file on disk is not known to the database, so raise an exception
         raise NoDatabaseRecordForPackageFound(package)
 
-    initiated = utils.convert_utc_timestamp(task_row['initiated'])
+    initiated = utils.normalize_timestamp(task_row['initiated'])
 
     # Check dataset metadata in Metax API
+
     dataset_modified = metax.get_dataset_modified_from_metax(dataset_id)
+
     if initiated < dataset_modified:
         # The package is older than the last modified timestamp of the dataset, so raise an exception
-        raise PackageOutdated(dataset_id, package, dataset_modified, initiated)
+        raise PackageOutdated(dataset_id, package)
 
     return True

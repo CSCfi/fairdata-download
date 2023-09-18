@@ -1,7 +1,12 @@
+import os
+import time
 import pendulum
 
 from download.dto import Package
 from download.services.cache import select_packages_to_be_removed
+
+os.environ["TZ"] = "UTC"
+time.tzset()
 
 
 def test_select_packages():

@@ -1,7 +1,12 @@
+import os
+import time
 import pytest
 import sqlite3
-
 from download.services.db import get_db
+
+os.environ["TZ"] = "UTC"
+time.tzset()
+
 
 def test_close(flask_app):
     with flask_app.app_context():
@@ -12,6 +17,7 @@ def test_close(flask_app):
         db_conn.execute('SELECT 1')
 
     assert 'closed' in str(programming_error.value)
+
 
 def test_init_command(runner, mock_init_db, recorder):
     result = runner.invoke(args=['db', 'init'])

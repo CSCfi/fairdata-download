@@ -4,12 +4,16 @@
 
     Message queue module for Fairdata Download Service.
 """
+import os
+import time
 import click
 from flask import current_app, g
 from flask.cli import AppGroup
 from pika import BlockingConnection, ConnectionParameters, PlainCredentials
 from pika.exceptions import AMQPConnectionError
 from socket import gaierror
+from ..utils import normalize_logging
+
 
 class UnableToConnectToMQ(Exception):
     def __init__(self, *args):
@@ -21,6 +25,7 @@ class UnableToConnectToMQ(Exception):
             return "Unable to connect to message queue on %s" % self.host
         else:
             return "Unable to connect to message queue"
+
 
 def get_mq():
     """Returns message queue connection from current context or creates new
@@ -64,6 +69,7 @@ def close_mq(e=None):
             'Disconnected from message queue on %s' %
             (current_app.config['MQ_HOST'], ))
 
+
 def init_mq():
     """Initializes message queue by (re-)creating used exchanges and queues.
 
@@ -98,10 +104,12 @@ def init_mq_command():
         init_mq()
         click.echo('Initialized the message queue.')
 
+
 def init_app(app):
     """Hooks message queue extension to given Flask application.
 
     :param app: Flask application to hook module into
     """
+    normalize_logging(app)
     app.teardown_appcontext(close_mq)
     app.cli.add_command(mq_cli)

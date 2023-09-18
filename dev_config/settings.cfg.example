@@ -35,7 +35,7 @@ MQ_PASS='DEFINE_ME'
 JWT_SECRET='DEFINE_ME'
 
 # Metax
-METAX_URL='https://metax.fd-test.csc.fi/'
+METAX_URL='https://metax.fd-stable.csc.fi/v3/'
 METAX_USER='download'
 METAX_PASS='DEFINE_ME'
 

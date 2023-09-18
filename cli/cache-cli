@@ -8,4 +8,6 @@ CLI=`dirname "$SCRIPT"`
 source $CLI/init-cli-script.sh
 source $DOWNLOAD_SERVICE_VENV/bin/activate
 
+cd $ROOT
+
 flask cache $*

@@ -1,0 +1,219 @@
+{
+  "id": "fc49d384-ad8c-4bc0-bd8d-145930255146",
+  "persistent_identifier": "urn:nbn:fi:fsd:T-FSD2931",
+  "state": "published",
+  "cumulative_state": 0,
+  "modified": "2020-07-04T18:06:24+03:00",
+  "created": "2018-06-19T15:09:00+03:00",
+  "removed": false,
+  "deprecated": false,
+  "preservation": {
+    "state": 0
+  },
+  "data_catalog": {
+    "id": 3,
+    "identifier": "urn:nbn:fi:att:data-catalog-harvest-fsd"
+  },
+  "metadata_owner_org": "fairdata.fi",
+  "metadata_provider_org": "fairdata.fi",
+  "metadata_provider_user": "harvest@fairdata.fi",
+  "title": {
+    "en": "Fairdata Download Service Test Dataset",
+    "fi": "Fairdata Tiedostolatauspalvelu Testitietojoukko"
+  },
+  "creator": [
+    {
+      "name": "Käyttäjä, Testi1",
+      "@type": "Person",
+      "member_of": {
+        "name": {
+          "fi": "Testaustiimi Oy"
+        },
+        "@type": "Organization"
+      }
+    },
+    {
+      "name": "Käyttäjä, Testi2",
+      "@type": "Person",
+      "member_of": {
+        "name": {
+          "fi": "Testaustiimi Oy"
+        },
+        "@type": "Organization"
+      }
+    }
+  ],
+  "keyword": [
+    "test",
+    "test data"
+  ],
+  "spatial": [
+    {
+      "place_uri": {
+        "in_scheme": "http://example.com/places",
+        "identifier": "http://example.com/places/test",
+        "pref_label": {
+          "en": "Finland",
+          "fi": "Suomi",
+          "sv": "Finland",
+          "und": "Suomi"
+        }
+      },
+      "geographic_name": "Finland"
+    }
+  ],
+  "language": [
+    {
+      "title": {
+        "en": "Finnish language",
+        "fi": "Suomen kieli",
+        "sv": "finska",
+        "und": "Suomen kieli"
+      },
+      "identifier": "http://example.org/id/iso639-3/fin"
+    }
+  ],
+  "temporal": [
+    {
+      "end_date": "2013-10-10T23:59:59-00:00",
+      "start_date": "2013-09-17T00:00:00-00:00"
+    }
+  ],
+  "publisher": {
+    "name": {
+      "fi": "Yhteiskuntatieteellinen tietoarkisto"
+    },
+    "@type": "Organization",
+    "homepage": {
+      "title": {
+        "en": "Publisher website",
+        "fi": "Julkaisijan kotisivu"
+      },
+      "identifier": "https://www.fsd.tuni.fi/"
+    }
+  },
+  "provenance": [
+    {
+      "title": {
+        "en": "Collection"
+      },
+      "temporal": {
+        "end_date": "2013-10-10T23:59:59-00:00",
+        "start_date": "2013-09-17T00:00:00-00:00"
+      },
+      "variable": [
+        {
+          "pref_label": {
+            "en": "the Åland Islands",
+            "fi": "Ahvenanmaa"
+          }
+        }
+      ],
+      "description": {
+        "en": "Contains the date(s) when the data were collected."
+      }
+    },
+    {
+      "title": {
+        "en": "Production"
+      },
+      "temporal": {
+        "end_date": "2014-11-28T23:59:59-00:00",
+        "start_date": "2014-11-28T00:00:00-00:00"
+      },
+      "description": {
+        "en": "Date when the data collection were produced (not distributed or archived)"
+      }
+      }
+  ],
+  "description": {
+    "en": "Maecenas imperdiet pharetra erat, eu luctus diam fermentum eleifend. Proin eget aliquet dui, pharetra viverra mauris. Nunc sodales nec felis sed egestas.",
+    "fi": "Vivamus dapibus ex nisi, vitae hendrerit massa dictum at. Sed eros erat, vulputate ut varius non, tristique quis massa. Phasellus laoreet ullamcorper velit aliquam aliquam."
+  },
+  "access_rights": {
+    "license": [
+      {
+        "title": {
+          "en": "Other (Not Open)",
+          "fi": "Muu (Ei avoin)",
+          "und": "Muu (Ei avoin)"
+        },
+        "identifier": "http://uri.suomi.fi/codelist/fairdata/license/code/other-closed",
+        "description": {
+          "en": "The dataset is (B) available for research, teaching and study.",
+          "fi": "Aineisto on käytettävissä (B) tutkimukseen, opetukseen ja opiskeluun."
+        }
+      }
+    ],
+    "access_type": {
+      "in_scheme": "http://example.com/codelist/fairdata/access_type",
+      "identifier": "http://example.com/codelist/fairdata/access_type/code/restricted",
+      "pref_label": {
+        "en": "Restricted use",
+        "fi": "Saatavuutta rajoitettu",
+        "und": "Saatavuutta rajoitettu"
+      }
+    },
+    "restriction_grounds": [
+      {
+        "in_scheme": "http://example.com/codelist/fairdata/restriction_grounds",
+        "identifier": "http://example.com/codelist/fairdata/restriction_grounds/code/education",
+        "pref_label": {
+          "en": "Restricted access for teaching or studying based on contract",
+          "fi": "Saatavuutta rajoitettu sopimuksen perusteella opetukseen ja opiskeluun",
+          "sv": "Begränsad åtkomst på bas av kontrakt ändast för undervisning och studier",
+          "und": "Saatavuutta rajoitettu sopimuksen perusteella opetukseen ja opiskeluun"
+        }
+      },
+      {
+        "in_scheme": "http://example.com/codelist/fairdata/restriction_grounds",
+        "identifier": "http://example.com/codelist/fairdata/restriction_grounds/code/research",
+        "pref_label": {
+          "en": "Restriced access for research based on contract",
+          "fi": "Saatavuutta rajoitettu sopimuksen perusteella vain tutkimuskäyttöön",
+          "sv": "Begränsad åtkomst på bas av kontrakt ändast för forskningsändamål",
+          "und": "Saatavuutta rajoitettu sopimuksen perusteella vain tutkimuskäyttöön"
+        }
+      }
+    ]
+  },
+  "field_of_science": [
+    {
+      "in_scheme": "http://www.example.com/onto/okm-tieteenala/conceptscheme",
+      "identifier": "http://www.example.com/onto/okm-tieteenala/ta4",
+      "pref_label": {
+        "en": "Agriculture and forestry",
+        "fi": "MAATALOUS- JA METSÄTIETEET",
+        "sv": "Jordbruks- och skogsvetenskaper",
+        "und": "MAATALOUS- JA METSÄTIETEET"
+      }
+    },
+    {
+      "in_scheme": "http://www.example.com/onto/okm-tieteenala/conceptscheme",
+      "identifier": "http://www.example.com/onto/okm-tieteenala/ta5",
+      "pref_label": {
+        "en": "Social sciences",
+        "fi": "YHTEISKUNTATIETEET",
+        "sv": "Samhällsvetenskaper",
+        "und": "YHTEISKUNTATIETEET"
+      }
+    }
+  ],
+  "other_identifier": [
+    {
+      "type": {
+        "in_scheme": "http://example.com/codelist/fairdata/identifier_type",
+        "identifier": "http://example.com/codelist/fairdata/identifier_type/code/urn",
+        "pref_label": {
+          "en": "Uniform Resource Name (URN)",
+          "und": "Uniform Resource Name (URN)"
+        }
+      },
+      "notation": "urn:nbn:fi:csc-kata20141222162232700731"
+    }
+  ],
+  "metadata_version_identifier": "2f8f5fee-9c08-4254-bc6b-2a6092ef4447",
+  "api_meta": {
+    "version": 3
+  }
+}

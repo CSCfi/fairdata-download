@@ -1,7 +1,12 @@
+import os
+import time
 import click
 import pytest
-
 from download.services.mq import get_mq, init_mq
+
+os.environ["TZ"] = "UTC"
+time.tzset()
+
 
 def test_init_command_confirm(runner, mock_init_mq, recorder):
     result = runner.invoke(args=['mq', 'init'], input='y\n')
@@ -10,6 +15,7 @@ def test_init_command_confirm(runner, mock_init_mq, recorder):
     assert 'Do you want to continue?' in result.output
     assert 'Initialized' in result.output
     assert recorder.called
+
 
 def test_init_command_unconfirm(runner, mock_init_mq, recorder):
     result = runner.invoke(args=['mq', 'init'], input='n\n')
