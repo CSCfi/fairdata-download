@@ -12,6 +12,8 @@ export FLASK_APP
 export FLASK_DEBUG
 export DOWNLOAD_SERVICE_SETTINGS
 
+umask 007
+
 if [ "$DEBUG" = "true" ]; then
     echo "FLASK_APP:                 $FLASK_APP"
     echo "FLASK_DEBUG:               $FLASK_DEBUG"

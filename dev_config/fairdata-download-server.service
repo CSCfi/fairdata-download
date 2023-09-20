@@ -6,6 +6,7 @@ Requires=fairdata-download-server.socket
 After=network.target
 
 [Service]
+UMask=0007
 Type=notify
 User=download
 Group=download

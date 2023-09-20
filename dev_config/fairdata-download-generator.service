@@ -5,6 +5,7 @@ Description=Fairdata Download Generator
 After=network.target
 
 [Service]
+UMask=0007
 Type=forking
 User=download
 Group=download

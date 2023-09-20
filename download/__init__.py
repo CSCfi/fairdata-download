@@ -14,6 +14,7 @@ from .blueprints.download_api import download_api
 from .blueprints.healthcheck import healthcheck
 from .utils import normalize_logging
 
+os.umask(0o007)
 os.environ["TZ"] = "UTC"
 time.tzset()
 

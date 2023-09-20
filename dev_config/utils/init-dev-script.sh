@@ -10,6 +10,8 @@ if [ "$ID" != "root" ]; then
     exit 1
 fi
 
+umask 007
+
 #DEBUG="true" # TEMP HACK
 
 SCRIPT="$(realpath $0)"
