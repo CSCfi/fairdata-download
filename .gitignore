@@ -15,10 +15,10 @@ project.sublime-project
 
 tmp/
 
-/venv
 /data
+/venv
 /log
-
+/config
 /dev_config/settings.cfg
 
 .env

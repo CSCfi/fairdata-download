@@ -10,12 +10,18 @@ if [ "$ID" != "root" ]; then
     exit 1
 fi
 
+#DEBUG="true" # TEMP HACK
+
 SCRIPT="$(realpath $0)"
 CLI=`dirname "$SCRIPT"`
 ROOT=`dirname "$CLI"`
 
 if [ -z "$DOWNLOAD_SERVICE_SETTINGS" ]; then
-    DOWNLOAD_SERVICE_SETTINGS="$ROOT/dev_config/settings.cfg"
+    if [ -d "$ROOT/config" ]; then
+        DOWNLOAD_SERVICE_SETTINGS="$ROOT/config/settings.cfg"
+    else
+        DOWNLOAD_SERVICE_SETTINGS="$ROOT/dev_config/settings.cfg"
+    fi
 fi
 
 if [ -z "$DOWNLOAD_SERVICE_VENV" ]; then
