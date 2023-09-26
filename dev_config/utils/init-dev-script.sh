@@ -20,7 +20,15 @@ DEV=`dirname "$UTILS"`
 ROOT=`dirname "$DEV"`
 
 if [ -z "$DOWNLOAD_SERVICE_SETTINGS" ]; then
-    DOWNLOAD_SERVICE_SETTINGS="$DEV/settings.cfg"
+    if [ -d "$ROOT/config" ]; then
+        DOWNLOAD_SERVICE_SETTINGS="$ROOT/config/settings.cfg"
+    else
+        DOWNLOAD_SERVICE_SETTINGS="$DEV/settings.cfg"
+    fi
+fi
+
+if [ -z "$DOWNLOAD_SERVICE_VENV" ]; then
+    DOWNLOAD_SERVICE_VENV="$ROOT/venv"
 fi
 
 if [ ! -f "$DOWNLOAD_SERVICE_SETTINGS" ]; then

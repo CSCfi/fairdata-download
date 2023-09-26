@@ -43,6 +43,11 @@ def create_flask_app():
     if 'DOWNLOAD_SERVICE_SETTINGS' in os.environ:
         app.logger.info("Loading DOWNLOAD_SERVICE_SETTINGS: %s" % os.environ['DOWNLOAD_SERVICE_SETTINGS'])
         app.config.from_envvar('DOWNLOAD_SERVICE_SETTINGS')
+    else:
+        pathname = "%s/config/settings.cfg" % os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        if os.path.exists(pathname):
+            app.logger.info("Loading deployed download service settings: %s" % pathname)
+            app.config.from_pyfile(pathname)
  
     cache.init_app(app)
     db.init_app(app)
