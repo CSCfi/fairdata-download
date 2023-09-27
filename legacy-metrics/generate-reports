@@ -15,12 +15,12 @@ ROOT=`dirname "$METRICS"`
 
 #--------------------------------------------------------------------------------
 
-if [ -z "$DOWNLOAD_SERVICE_SETTINGS" ]; then
-    DOWNLOAD_SERVICE_SETTINGS="$ROOT/dev_config/settings.cfg"
+if [ -z "$DOWNLOAD_SETTINGS" ]; then
+    DOWNLOAD_SETTINGS="$ROOT/dev_config/settings.cfg"
 fi
 
-if [ ! -f "$DOWNLOAD_SERVICE_SETTINGS" ]; then
-    echo "Could not find service configuration file '${DOWNLOAD_SERVICE_SETTINGS}'! Exiting" >&2
+if [ ! -f "$DOWNLOAD_SETTINGS" ]; then
+    echo "Could not find service configuration file '${DOWNLOAD_SETTINGS}'! Exiting" >&2
     exit 1
 fi
 
@@ -34,7 +34,7 @@ if [ ! -f "$EVENTS_SNAPSHOT_FILE" ]; then
 fi
 
 source $ROOT/venv/bin/activate
-source $DOWNLOAD_SERVICE_SETTINGS
+source $DOWNLOAD_SETTINGS
 
 EVENTS_REPORT_ROOT="$METRICS/reports"
 

@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "fairdata-download-service"
+name = "fairdata-download"
 version = "1"
 description = ""
 authors = [""]

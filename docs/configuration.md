@@ -24,13 +24,13 @@ FLASK_DEBUG=1
 FLASK_RUN_HOST=0.0.0.0
 FLASK_RUN_PORT=5000
 
-DOWNLOAD_SERVICE_SETTINGS=./settings.cfg.dev
+DOWNLOAD_SETTINGS=./settings.cfg.dev
 ```
 
 ## Download Settings
 
 Download Service settings can be specified with a settings file referenced by
-`DOWNLOAD_SERVICE_SETTINGS` environment variable. (see
+`DOWNLOAD_SETTINGS` environment variable. (see
 [default configuration](/download/config.py) for reference)
 
 Sample configuration below:
@@ -51,7 +51,7 @@ METAX_PASS='<download-password>'
 ## Download E2E settings
 
 End-to-End tests for Download Service can be configured with a separate file
-pointed to by `DOWNLOAD_SERVICE_TEST_DATA` environment variable.
+pointed to by `DOWNLOAD_TEST_DATA` environment variable.
 
 Sample confguration below:
 ```

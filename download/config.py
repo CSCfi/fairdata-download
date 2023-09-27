@@ -1,13 +1,13 @@
 # download.config
 #
 # Default configuration module for download application. Update these
-# settings with a file specified by DOWNLOAD_SERVICE_SETTINGS environment
+# settings with a file specified by DOWNLOAD_SETTINGS environment
 # variable.
 # 
 # Any values defined in this file will be overwritten by values defined
-# in DOWNLOAD_SERVICE_SETTINGS, if an equivalent value is defined there.
+# in DOWNLOAD_SETTINGS, if an equivalent value is defined there.
 # 
-# If an equivalent value is not defined in DOWNLOAD_SERVICE_SETTINGS,
+# If an equivalent value is not defined in DOWNLOAD_SETTINGS,
 # the value defined in this default config.py template configurtion will
 # be used instead.
 # 
@@ -19,11 +19,11 @@
 # and bash utilities.
 
 # Volume mounts
-DOWNLOAD_CACHE_DIR='/mnt/download-service-cache'
+DOWNLOAD_CACHE_DIR='/mnt/download-cache'
 IDA_DATA_ROOT='/mnt/download-ida-storage'
 
 # Database
-DATABASE_FILE='/mnt/download-service-cache/download.db'
+DATABASE_FILE='/mnt/download-cache/download.db'
 
 # Cache
 # Variables affecting the automated cache management

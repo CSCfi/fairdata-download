@@ -4,8 +4,8 @@ and housekeeping functionality of the Download Service.
 If the following environment variables are defined, the specified paths
 will be used, else they will default to the paths indicated:
 
-DOWNLOAD_SERVICE_SETTINGS   (default: "$ROOT/dev_config/settings.cfg")
-DOWNLOAD_SERVICE_VENV       (default: "$ROOT/venv")
+DOWNLOAD_SETTINGS   (default: "$ROOT/dev_config/settings.cfg")
+DOWNLOAD_VENV       (default: "$ROOT/venv")
 
 where $ROOT corresponds to the root of the deployed service.
 

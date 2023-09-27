@@ -6,7 +6,7 @@ SCRIPT_NAME=`basename $SCRIPT`
 CLI=`dirname "$SCRIPT"`
 
 source $CLI/init-cli-script.sh
-source $DOWNLOAD_SERVICE_VENV/bin/activate
+source $DOWNLOAD_VENV/bin/activate
 
 cd $ROOT
 

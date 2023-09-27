@@ -28,7 +28,7 @@ To install and deploy the service, execute the script `dev_config/utils/initiali
  * load the configuration settings from `dev_config/settings.cfg`
  * create the necessary symbolic links from `/usr/lib/systemd/system/` to the relevant files in the root of the repository
  * initialize the `data/` directory with subdirectories for database, cache, and either a link to the IDA data storage root or an empty placeholder directory
- * copy the `dev_config/fairdata-download-service.nginx.conf` to `/etc/nginx/conf.d/`
+ * copy the `dev_config/fairdata-download.nginx.conf` to `/etc/nginx/conf.d/`
  * create the needed user account and vhost in RabbitMQ
  * initialize the python3 virtual environment `venv/`, installing all components in `requirements.txt` and `requirements-dev.txt`
  * start and enable the services
@@ -38,7 +38,7 @@ the utility script `dev_config/utils/restart`
 
 You can generate, as needed, new `requirements.txt` and/or `requirements-dev.txt` files from `pyproject.toml` with Poetry:
 
-```
+```bash
 # no development deps
 poetry export --without-hashes -o requirements.txt
 
@@ -60,7 +60,7 @@ integration testing.
 
 The basic Docker images can be built by executing:
 
-```
+```bash
 docker build . --no-cache -t fairdata-docker.artifactory.ci.csc.fi/fairdata-download-server
 docker build . --no-cache -f Dockerfile.generator -t fairdata-docker.artifactory.ci.csc.fi/fairdata-download-generator
 ```

@@ -1,10 +1,9 @@
-# fairdata-download-service
+# fairdata-download
 
-[![pipeline status](https://gitlab.ci.csc.fi/fairdata/fairdata-download-service/badges/test/pipeline.svg)](https://gitlab.ci.csc.fi/fairdata/fairdata-download-service/-/commits/test)
-[![coverage report](https://gitlab.ci.csc.fi/fairdata/fairdata-download-service/badges/test/coverage.svg)](https://gitlab.ci.csc.fi/fairdata/fairdata-download-service/-/commits/test)
+[![pipeline status](https://gitlab.ci.csc.fi/fairdata/fairdata-download/badges/test/pipeline.svg)](https://gitlab.ci.csc.fi/fairdata/fairdata-download/-/commits/test)
+[![coverage report](https://gitlab.ci.csc.fi/fairdata/fairdata-download/badges/test/coverage.svg)](https://gitlab.ci.csc.fi/fairdata/fairdata-download/-/commits/test)
 
-The Fairdata download server (v2) which provides for packaging and download of
-published datasets, or subsets of datasets, available via Etsin.
+`fairdata-download` provides packaging and download of published datasets, or subsets of datasets, available via Etsin.
 
 ## Installation
 

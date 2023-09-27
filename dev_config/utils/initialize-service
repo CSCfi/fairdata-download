@@ -19,7 +19,7 @@ systemctl --quiet stop fairdata-download-generator    &>/dev/null
 systemctl --quiet disable fairdata-download-generator &>/dev/null
 
 declare -a FILES=(
-    "/etc/nginx/conf.d/fairdata-download-service.nginx.conf"
+    "/etc/nginx/conf.d/fairdata-download.nginx.conf"
     "/usr/lib/systemd/system/fairdata-download-server.service"
     "/usr/lib/systemd/system/fairdata-download-generator.service"
     "/usr/lib/systemd/system/fairdata-download-generator.service"
@@ -49,8 +49,8 @@ declare -a DIRS=(
     "$ROOT/data/download-cache"
     "$ROOT/data/ida-data"
     "$ROOT/venv"
-    "/var/log/fairdata-download-service"
-    "/run/fairdata-download-service"
+    "/var/log/fairdata-download"
+    "/run/fairdata-download"
     "/run/fairdata-download-generator"
 )
 
@@ -68,8 +68,8 @@ useradd download || true
 $UTILS/initialize-venv
 $UTILS/fix-permissions
 
-mkdir -p  /var/log/fairdata-download-service
-chown download:download /var/log/fairdata-download-service
+mkdir -p  /var/log/fairdata-download
+chown download:download /var/log/fairdata-download
 
 mkdir -p  $ROOT/data/download-cache
 chown download:download $ROOT/data/download-cache
@@ -88,7 +88,7 @@ else
     chown download:download $ROOT/data/ida-data
 fi
 
-ln -s $DEV/fairdata-download-service.nginx.conf /etc/nginx/conf.d/fairdata-download-service.nginx.conf
+ln -s $DEV/fairdata-download.nginx.conf /etc/nginx/conf.d/fairdata-download.nginx.conf
 ln -s $DEV/fairdata-download-server.socket /usr/lib/systemd/system/fairdata-download-server.socket
 ln -s $DEV/fairdata-download-server.service /usr/lib/systemd/system/fairdata-download-server.service
 ln -s $DEV/fairdata-download-generator.service /usr/lib/systemd/system/fairdata-download-generator.service

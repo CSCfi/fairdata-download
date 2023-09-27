@@ -19,11 +19,11 @@ UTILS=`dirname "$SCRIPT"`
 DEV=`dirname "$UTILS"`
 ROOT=`dirname "$DEV"`
 
-if [ -z "$DOWNLOAD_SERVICE_SETTINGS" ]; then
+if [ -z "$DOWNLOAD_SETTINGS" ]; then
     if [ -d "$ROOT/config" ]; then
-        DOWNLOAD_SERVICE_SETTINGS="$ROOT/config/settings.cfg"
+        DOWNLOAD_SETTINGS="$ROOT/config/settings.cfg"
     else
-        DOWNLOAD_SERVICE_SETTINGS="$DEV/settings.cfg"
+        DOWNLOAD_SETTINGS="$DEV/settings.cfg"
     fi
 fi
 
@@ -31,12 +31,12 @@ if [ -z "$DOWNLOAD_SERVICE_VENV" ]; then
     DOWNLOAD_SERVICE_VENV="$ROOT/venv"
 fi
 
-if [ ! -f "$DOWNLOAD_SERVICE_SETTINGS" ]; then
-    echo "Could not find configuration file $DOWNLOAD_SERVICE_SETTINGS" >&2
+if [ ! -f "$DOWNLOAD_SETTINGS" ]; then
+    echo "Could not find configuration file $DOWNLOAD_SETTINGS" >&2
     exit 1
 fi
 
-source $DOWNLOAD_SERVICE_SETTINGS
+source $DOWNLOAD_SETTINGS
 
 if [ "$ENVIRONMENT" = "" ]; then
     echo "No ENVIRONMENT defined" >&2
@@ -59,7 +59,7 @@ fi
 
 if [ "$DEBUG" = "true" ]; then
     echo "ENVIRONMENT:   $ENVIRONMENT"
-    echo "SETTINGS:      $DOWNLOAD_SERVICE_SETTINGS"
+    echo "SETTINGS:      $DOWNLOAD_SETTINGS"
     echo "SCRIPT:        $SCRIPT"
     echo "ROOT:          $ROOT"
     echo "UTILS:         $UTILS"
@@ -69,5 +69,5 @@ fi
 
 export METAX_URL
 export METAX_VERSION
-export DOWNLOAD_SERVICE_SETTINGS
+export DOWNLOAD_SETTINGS
 export TRUSTED_SERVICE_TOKEN

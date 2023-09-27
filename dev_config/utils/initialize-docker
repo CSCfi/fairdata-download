@@ -29,8 +29,8 @@ done
 declare -a DIRS=(
     "$ROOT/data/download-cache"
     "$ROOT/data/db"
-    "/var/log/fairdata-download-service"
-    "/run/fairdata-download-service"
+    "/var/log/fairdata-download"
+    "/run/fairdata-download"
     "/run/fairdata-download-generator"
 )
 
@@ -57,11 +57,11 @@ usermod -a -G $HTTPD_USER download
 
 $UTILS/fix-permissions
 
-mkdir -p /var/log/fairdata-download-service
-chown download:download  /var/log/fairdata-download-service
+mkdir -p /var/log/fairdata-download
+chown download:download  /var/log/fairdata-download
 
-mkdir -p /run/fairdata-download-service
-chown download:download  /run/fairdata-download-service
+mkdir -p /run/fairdata-download
+chown download:download  /run/fairdata-download
 
 mkdir -p /run/fairdata-download-generator
 chown download:download  /run/fairdata-download-generator

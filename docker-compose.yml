@@ -11,16 +11,16 @@ services:
         source: download-ida-storage
         target: /mnt/download-ida-storage
       - type: volume
-        source: download-service-cache
-        target: /mnt/download-service-cache
+        source: download-cache
+        target: /mnt/download-cache
     environment:
-      DOWNLOAD_SERVICE_SETTINGS: '/etc/fairdata-download-service/settings.cfg'
-      DOWNLOAD_SERVICE_TEST_DATA: '/etc/fairdata-download-service/e2e-test-settings.cfg'
+      DOWNLOAD_SETTINGS: '/usr/local/fd/fairdata-download/settings.cfg'
+      DOWNLOAD_TEST_DATA: '/usr/local/fd/fairdata-download/e2e-test-settings.cfg'
     configs:
       - source: download-settings
-        target: '/etc/fairdata-download-service/settings.cfg'
+        target: '/usr/local/fd/fairdata-download/settings.cfg'
       - source: download-e2e-settings
-        target: '/etc/fairdata-download-service/e2e-test-settings.cfg'
+        target: '/usr/local/fd/fairdata-download/e2e-test-settings.cfg'
 
   download-generator:
     image: fairdata-docker.artifactory.ci.csc.fi/fairdata-download-generator
@@ -30,13 +30,13 @@ services:
         source: download-ida-storage
         target: /mnt/download-ida-storage
       - type: volume
-        source: download-service-cache
-        target: /mnt/download-service-cache
+        source: download-cache
+        target: /mnt/download-cache
     environment:
-      DOWNLOAD_SERVICE_SETTINGS: '/etc/fairdata-download-service/settings.cfg'
+      DOWNLOAD_SETTINGS: '/usr/local/fd/fairdata-download/settings.cfg'
     configs:
       - source: download-settings
-        target: '/etc/fairdata-download-service/settings.cfg'
+        target: '/usr/local/fd/fairdata-download/settings.cfg'
 
   download-rabbitmq:
     image: fairdata-docker.artifactory.ci.csc.fi/rabbitmq:management
@@ -80,5 +80,5 @@ configs:
 volumes:
   download-ida-storage:
     external: True
-  download-service-cache:
+  download-cache:
     external: True

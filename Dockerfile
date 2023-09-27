@@ -12,10 +12,10 @@ COPY . .
 
 # Configure volumes
 RUN mkdir /mnt/download-ida-storage
-RUN mkdir /mnt/download-service-cache
+RUN mkdir /mnt/download-cache
 
 VOLUME /mnt/download-ida-storage
-VOLUME /mnt/download-service-cache
+VOLUME /mnt/download-cache
 
 # Default environment variables
 ENV FLASK_APP=download

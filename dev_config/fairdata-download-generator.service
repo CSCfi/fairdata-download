@@ -9,10 +9,10 @@ UMask=0007
 Type=forking
 User=download
 Group=download
-EnvironmentFile=/opt/fairdata/fairdata-download-service/dev_config/fairdata-download-generator.env
-WorkingDirectory=/opt/fairdata/fairdata-download-service
+EnvironmentFile=/usr/local/fd/fairdata-download/dev_config/fairdata-download-generator.env
+WorkingDirectory=/usr/local/fd/fairdata-download
 RuntimeDirectory=fairdata-download-generator
-ExecStart=/bin/sh -c '/opt/fairdata/fairdata-download-service/dev_config/fairdata-download-generator.sh'
+ExecStart=/bin/sh -c '/usr/local/fd/fairdata-download/dev_config/fairdata-download-generator.sh'
 
 [Install]
 WantedBy=multi-user.target

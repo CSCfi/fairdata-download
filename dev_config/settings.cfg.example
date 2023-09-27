@@ -13,11 +13,11 @@ ENVIRONMENT='DEV'
 TRUSTED_SERVICE_TOKEN="DEFINE_ME"
 
 # Volumes
-DOWNLOAD_CACHE_DIR='/opt/fairdata/fairdata-download-service/data/download-cache'
-IDA_DATA_ROOT='/opt/fairdata/fairdata-download-service/data/ida-data'
+DOWNLOAD_CACHE_DIR='/mnt/download-cache'
+IDA_DATA_ROOT='/mnt/download-ida-storage'
 
 # Database
-DATABASE_FILE='/opt/fairdata/fairdata-download-service/data/db/download.db'
+DATABASE_FILE='/mnt/download-cache/download.db'
 
 # Cache
 CACHE_PURGE_THRESHOLD=1073741824 # 1GB

@@ -5,25 +5,25 @@
 
 TZ="UTC"
 
-source /opt/fairdata/fairdata-download-service/dev_config/fairdata-download-server.env
+source /usr/local/fd/fairdata-download/dev_config/fairdata-download-server.env
 
 export TZ
 export FLASK_APP
 export FLASK_DEBUG
-export DOWNLOAD_SERVICE_SETTINGS
+export DOWNLOAD_SETTINGS
 
 umask 007
 
 if [ "$DEBUG" = "true" ]; then
     echo "FLASK_APP:                 $FLASK_APP"
     echo "FLASK_DEBUG:               $FLASK_DEBUG"
-    echo "DOWNLOAD_SERVICE_SETTINGS: $DOWNLOAD_SERVICE_SETTINGS"
+    echo "DOWNLOAD_SETTINGS:         $DOWNLOAD_SETTINGS"
     echo "GUNICORN_BIN:              $GUNICORN_BIN"
     echo "GUNICORN_CONF:             $GUNICORN_CONF"
     echo "GUNICORN_LOGGING_CONF:     $GUNICORN_LOGGING_CONF"
 fi
 
-cd /opt/fairdata/fairdata-download-service
+cd /usr/local/fd/fairdata-download
 
 source venv/bin/activate
 
