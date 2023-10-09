@@ -27,7 +27,7 @@ for LINK in "${LINKS[@]}"; do
 done
 
 declare -a DIRS=(
-    "$ROOT/data/download-cache"
+    "$ROOT/data/download-service-cache"
     "$ROOT/data/db"
     "/var/log/fairdata-download"
     "/run/fairdata-download"
@@ -66,8 +66,8 @@ chown download:download  /run/fairdata-download
 mkdir -p /run/fairdata-download-generator
 chown download:download  /run/fairdata-download-generator
 
-mkdir -p  $ROOT/data/download-cache
-chown download:download  $ROOT/data/download-cache
+mkdir -p  $ROOT/data/download-service-cache
+chown download:download  $ROOT/data/download-service-cache
 
 mkdir -p  $ROOT/data/db
 chown download:download  $ROOT/data/db

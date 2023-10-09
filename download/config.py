@@ -19,11 +19,11 @@
 # and bash utilities.
 
 # Volume mounts
-DOWNLOAD_CACHE_DIR='/mnt/download-cache'
+DOWNLOAD_CACHE_DIR='/mnt/download-service-cache'
 IDA_DATA_ROOT='/mnt/download-ida-storage'
 
 # Database
-DATABASE_FILE='/mnt/download-cache/download.db'
+DATABASE_FILE='/mnt/download-service-cache/download.db'
 
 # Cache
 # Variables affecting the automated cache management

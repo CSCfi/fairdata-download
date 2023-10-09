@@ -46,7 +46,7 @@ done
 
 declare -a DIRS=(
     "$ROOT/data/db"
-    "$ROOT/data/download-cache"
+    "$ROOT/data/download-service-cache"
     "$ROOT/data/ida-data"
     "$ROOT/venv"
     "/var/log/fairdata-download"
@@ -71,8 +71,8 @@ $UTILS/fix-permissions
 mkdir -p  /var/log/fairdata-download
 chown download:download /var/log/fairdata-download
 
-mkdir -p  $ROOT/data/download-cache
-chown download:download $ROOT/data/download-cache
+mkdir -p  $ROOT/data/download-service-cache
+chown download:download $ROOT/data/download-service-cache
 
 mkdir -p  $ROOT/data/db
 chown download:download $ROOT/data/db

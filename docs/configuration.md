@@ -38,7 +38,7 @@ Sample configuration below:
 ```
 MQ_HOST='rabbitmq'
 
-DOWNLOAD_CACHE_DIR='/app/data/download-cache'
+DOWNLOAD_CACHE_DIR='/app/data/download-service-cache'
 IDA_DATA_ROOT='/app/data/ida-data'
 
 DATABASE_FILE='/app/data/download.db'

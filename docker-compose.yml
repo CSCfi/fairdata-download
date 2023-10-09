@@ -11,8 +11,8 @@ services:
         source: download-ida-storage
         target: /mnt/download-ida-storage
       - type: volume
-        source: download-cache
-        target: /mnt/download-cache
+        source: download-service-cache
+        target: /mnt/download-service-cache
     environment:
       DOWNLOAD_SETTINGS: '/usr/local/fd/fairdata-download/settings.cfg'
       DOWNLOAD_TEST_DATA: '/usr/local/fd/fairdata-download/e2e-test-settings.cfg'
@@ -30,8 +30,8 @@ services:
         source: download-ida-storage
         target: /mnt/download-ida-storage
       - type: volume
-        source: download-cache
-        target: /mnt/download-cache
+        source: download-service-cache
+        target: /mnt/download-service-cache
     environment:
       DOWNLOAD_SETTINGS: '/usr/local/fd/fairdata-download/settings.cfg'
     configs:
@@ -80,5 +80,5 @@ configs:
 volumes:
   download-ida-storage:
     external: True
-  download-cache:
+  download-service-cache:
     external: True

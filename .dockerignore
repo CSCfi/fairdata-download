@@ -2,7 +2,7 @@ venv/
 .env
 *.db
 
-*/download-cache
+*/download-service-cache
 */ida-data
 
 *.pyc
