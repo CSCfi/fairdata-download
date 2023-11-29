@@ -95,49 +95,49 @@ def mock_celery(monkeypatch, recorder, celery_task):
 
 @pytest.fixture
 def metax_dataset_available(monkeypatch):
-    def metax_get_available(url, auth={}):
+    def metax_get_available(url, auth={}, headers={}):
         return MetaxDatasetResponse("no-tasks", 200)
     monkeypatch.setattr('requests.get', metax_get_available)
 
 
 @pytest.fixture
 def metax_dataset_not_found(monkeypatch):
-    def metax_get_not_found(url, auth={}):
+    def metax_get_not_found(url, auth={}, headers={}):
         return MetaxDatasetResponse("not-found", 404)
     monkeypatch.setattr('requests.get', metax_get_not_found)
 
 
 @pytest.fixture
 def metax_cannot_connect(monkeypatch):
-    def metax_get_cannot_connect(url, auth={}):
+    def metax_get_cannot_connect(url, auth={}, headers={}):
         raise ConnectionError
     monkeypatch.setattr('requests.get', metax_get_cannot_connect)
 
 
 @pytest.fixture
 def metax_missing_fields(monkeypatch):
-    def metax_get_metax_missing_fields(url, auth={}):
+    def metax_get_metax_missing_fields(url, auth={}, headers={}):
         return MetaxDatasetResponse("missing-fields", 200)
     monkeypatch.setattr('requests.get', metax_get_metax_missing_fields)
 
 
 @pytest.fixture
 def metax_unexpected_status_code(monkeypatch):
-    def metax_get_unexpected_status_code(url, auth={}):
+    def metax_get_unexpected_status_code(url, auth={}, headers={}):
         return MetaxDatasetResponse("missing-fields", 521)
     monkeypatch.setattr('requests.get', metax_get_unexpected_status_code)
 
 
 @pytest.fixture
 def metax_dataset_files_available(monkeypatch):
-    def metax_get_files_available(url, auth={}):
+    def metax_get_files_available(url, auth={}, headers={}):
         return MetaxDatasetFilesResponse("no-tasks", 200)
     monkeypatch.setattr('requests.get', metax_get_files_available)
 
 
 @pytest.fixture
 def mock_metax(monkeypatch, recorder):
-    def mock_get_metax(url, auth={}):
+    def mock_get_metax(url, auth={}, headers={}):
         recorder.called = True
         if url.endswith('files') or url.endswith('files?pagination=false'):
             return MetaxDatasetFilesResponse("no-tasks", 200)
@@ -149,7 +149,7 @@ def mock_metax(monkeypatch, recorder):
 
 @pytest.fixture
 def mock_metax_modified(monkeypatch, recorder):
-    def mock_get_metax(url, auth={}):
+    def mock_get_metax(url, auth={}, headers={}):
         recorder.called = True
         if url.endswith('files'):
             return MetaxDatasetFilesResponse("success-modified", 200)

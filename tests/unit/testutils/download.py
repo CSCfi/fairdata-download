@@ -20,6 +20,7 @@ def get_test_data(table_name, descriptor):
 
 def inject_database_records(flask_app, descriptor):
     dataset = {}
+    dataset['csc_project'] = '2009999'
     dataset['project_identifier'] = '2009999'
     with flask_app.app_context():
         db_conn = db.get_db()

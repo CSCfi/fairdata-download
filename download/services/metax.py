@@ -7,6 +7,7 @@
     Supports both version 1 and 3 of the Metax API, determined by configuration.
 """
 import requests
+import json
 from flask import current_app
 from requests.exceptions import ConnectionError
 from ..utils import normalize_timestamp, startswithpath
@@ -78,10 +79,11 @@ def get_metax(resource):
     try:
         current_app.logger.debug("Requesting Metax API '%s'" % url)
         if metax_version >= 3:
-            # TODO add auth header
-            return requests.get(url)
+            headers = { "Authorization": "Token %s" % current_app.config['METAX_PASS'] }
+            return requests.get(url, headers=headers)
         else:
-            return requests.get(url, auth=(current_app.config['METAX_USER'], current_app.config['METAX_PASS']))
+            auth = (current_app.config['METAX_USER'], current_app.config['METAX_PASS'])
+            return requests.get(url, auth=auth)
     except ConnectionError:
         current_app.logger.error("Unable to connect to Metax API on '%s'" % url)
         raise
@@ -195,7 +197,7 @@ def get_matching_project_identifier_from_metax(dataset_id, filepath):
         raise NoMatchingFilesFound(dataset_id)
 
     if current_app.config.get('METAX_VERSION', 1) >= 3:
-        return matching_files[-1].get('project')
+        return matching_files[-1].get('csc_project')
     else:
         return matching_files[-1].get('project_identifier')
 
@@ -224,7 +226,7 @@ def get_matching_dataset_files_from_metax(dataset_id, scope):
         raise NoMatchingFilesFound(dataset_id)
 
     if current_app.config.get('METAX_VERSION', 1) >= 3:
-        project_identifier = list(map(lambda metax_file: metax_file['project'], metax_files_response))[0]
+        project_identifier = list(map(lambda metax_file: metax_file['csc_project'], metax_files_response))[0]
     else:
         project_identifier = list(map(lambda metax_file: metax_file['project_identifier'], metax_files_response))[0]
 
