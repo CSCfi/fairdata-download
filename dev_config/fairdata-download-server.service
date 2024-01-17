@@ -2,7 +2,7 @@
 
 [Unit]
 Description=Fairdata Download Server
-Requires=fairdata-download-server.socket
+Requires=fairdata-download.socket
 After=network.target
 
 [Service]
@@ -10,7 +10,7 @@ UMask=0007
 Type=notify
 User=download
 Group=download
-EnvironmentFile=/usr/local/fd/fairdata-download/dev_config/fairdata-download-server.env
+EnvironmentFile=/usr/local/fd/fairdata-download/dev_config/fairdata-download.env
 WorkingDirectory=/usr/local/fd/fairdata-download
 ExecStart=/bin/sh -c '${GUNICORN_BIN} --config ${GUNICORN_CONF} download:flask_app'
 ExecReload=/bin/kill -s HUP ${MAINPID}

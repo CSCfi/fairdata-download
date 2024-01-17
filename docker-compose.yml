@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   download-server:
-    image: fairdata-docker.artifactory.ci.csc.fi/fairdata-download-server
+    image: fairdata-docker.artifactory.ci.csc.fi/fairdata-download
     ports:
       - 5000:5000
     volumes:

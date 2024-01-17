@@ -5,7 +5,7 @@
 
 TZ="UTC"
 
-source /usr/local/fd/fairdata-download/dev_config/fairdata-download-server.env
+source /usr/local/fd/fairdata-download/dev_config/fairdata-download.env
 
 export TZ
 export FLASK_APP

@@ -13,20 +13,20 @@ source $UTILS/init-dev-script.sh
 
 cd $ROOT
 
-systemctl --quiet stop fairdata-download-server       &>/dev/null
-systemctl --quiet disable fairdata-download-server    &>/dev/null
+systemctl --quiet stop fairdata-download       &>/dev/null
+systemctl --quiet disable fairdata-download    &>/dev/null
 systemctl --quiet stop fairdata-download-generator    &>/dev/null
 systemctl --quiet disable fairdata-download-generator &>/dev/null
 
 declare -a FILES=(
     "/etc/nginx/conf.d/fairdata-download.nginx.conf"
-    "/usr/lib/systemd/system/fairdata-download-server.service"
+    "/usr/lib/systemd/system/fairdata-download.service"
     "/usr/lib/systemd/system/fairdata-download-generator.service"
     "/usr/lib/systemd/system/fairdata-download-generator.service"
-    "/usr/lib/systemd/system/fairdata-download-server.socket"
-    "/etc/systemd/system/fairdata-download-server.service"
+    "/usr/lib/systemd/system/fairdata-download.socket"
+    "/etc/systemd/system/fairdata-download.service"
     "/etc/systemd/system/fairdata-download-generator.service"
-    "/etc/systemd/system/fairdata-download-server.socket"
+    "/etc/systemd/system/fairdata-download.socket"
     "$ROOT/data/ida-data"
 )
 
@@ -89,8 +89,8 @@ else
 fi
 
 ln -s $DEV/fairdata-download.nginx.conf /etc/nginx/conf.d/fairdata-download.nginx.conf
-ln -s $DEV/fairdata-download-server.socket /usr/lib/systemd/system/fairdata-download-server.socket
-ln -s $DEV/fairdata-download-server.service /usr/lib/systemd/system/fairdata-download-server.service
+ln -s $DEV/fairdata-download.socket /usr/lib/systemd/system/fairdata-download.socket
+ln -s $DEV/fairdata-download.service /usr/lib/systemd/system/fairdata-download.service
 ln -s $DEV/fairdata-download-generator.service /usr/lib/systemd/system/fairdata-download-generator.service
 
 $UTILS/initialize-rabbitmq
@@ -98,11 +98,11 @@ $UTILS/initialize-rabbitmq
 systemctl daemon-reload
 
 systemctl stop nginx
-systemctl start fairdata-download-server
+systemctl start fairdata-download
 systemctl start fairdata-download-generator
 systemctl start nginx
-systemctl enable fairdata-download-server
+systemctl enable fairdata-download
 systemctl enable fairdata-download-generator
-systemctl status -l fairdata-download-server
+systemctl status -l fairdata-download
 systemctl status -l fairdata-download-generator
 systemctl status -l nginx

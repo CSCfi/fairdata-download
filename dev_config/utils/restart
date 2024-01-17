@@ -13,11 +13,11 @@ source $UTILS/init-dev-script.sh
 
 systemctl daemon-reload
 systemctl stop nginx
-systemctl stop fairdata-download-server
+systemctl stop fairdata-download
 systemctl stop fairdata-download-generator
 systemctl start fairdata-download-generator
-systemctl start fairdata-download-server
+systemctl start fairdata-download
 systemctl start nginx
 systemctl status -l nginx
 systemctl status -l fairdata-download-generator
-systemctl status -l fairdata-download-server
+systemctl status -l fairdata-download

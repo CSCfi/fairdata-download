@@ -20,7 +20,7 @@ be running and available, with the relevant credentials defined in
 `dev_config/settings.cfg`
 
 Once the settings are defined, a utility script exists to fully configure and deploy
-the fairdata-download-server and fairdata-download-generator services locally on a
+the fairdata-download and fairdata-download-generator services locally on a
 Centos host where nginx and RabbitMQ are running.
 
 To install and deploy the service, execute the script `dev_config/utils/initialize-service`, which will:
@@ -61,6 +61,6 @@ integration testing.
 The basic Docker images can be built by executing:
 
 ```bash
-docker build . --no-cache -t fairdata-docker.artifactory.ci.csc.fi/fairdata-download-server
+docker build . --no-cache -t fairdata-docker.artifactory.ci.csc.fi/fairdata-download
 docker build . --no-cache -f Dockerfile.generator -t fairdata-docker.artifactory.ci.csc.fi/fairdata-download-generator
 ```

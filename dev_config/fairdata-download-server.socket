@@ -4,7 +4,7 @@
 Description=UNIX socket for Fairdata Download Server
 
 [Socket]
-ListenStream=/run/fairdata-download-server.sock
+ListenStream=/run/fairdata-download.sock
 SocketMode=0666
 SocketUser=download
 SocketGroup=download

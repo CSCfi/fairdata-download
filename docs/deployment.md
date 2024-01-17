@@ -25,7 +25,7 @@ dev_config/utils/initialize-venv
 The download service server component can be started using the script
 
 ```
-dev_config/fairdata-download-server.sh
+dev_config/fairdata-download.sh
 ```
 
 The download service package generator component can be started using the script
