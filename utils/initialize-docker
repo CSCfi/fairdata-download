@@ -73,3 +73,4 @@ mkdir -p  $ROOT/data/db
 chown download:download  $ROOT/data/db
 
 ln -s /mnt/storage_vol01/ida $ROOT/data/ida-data
+

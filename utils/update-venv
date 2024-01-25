@@ -11,13 +11,14 @@ source $UTILS/init-dev-script.sh
 
 #--------------------------------------------------------------------------------
 
-systemctl daemon-reload
-systemctl stop nginx
-systemctl stop fairdata-download
-systemctl stop fairdata-download-generator
-systemctl start fairdata-download-generator
-systemctl start fairdata-download
-systemctl start nginx
-systemctl status -l nginx
-systemctl status -l fairdata-download-generator
-systemctl status -l fairdata-download
+if [ ! -d $ROOT/venv ]; then
+    echo "Could not find virtual environment $ROOT/venv" >&2
+    exit 1
+fi
+
+source $ROOT/venv/bin/activate
+
+pip install --upgrade pip
+pip install -r $ROOT/requirements.txt
+pip install -r $ROOT/requirements-dev.txt
+

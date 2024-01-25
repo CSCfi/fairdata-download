@@ -27,3 +27,4 @@ source $ROOT/venv/bin/activate
 pip install --upgrade pip
 pip install -r $ROOT/requirements.txt
 pip install -r $ROOT/requirements-dev.txt
+

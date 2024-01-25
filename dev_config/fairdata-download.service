@@ -1,7 +1,7 @@
 # This file is only used for local development
 
 [Unit]
-Description=Fairdata Download Server
+Description=Fairdata Download Service
 Requires=fairdata-download.socket
 After=network.target
 

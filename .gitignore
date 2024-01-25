@@ -19,6 +19,7 @@ tmp/
 /venv
 /log
 /config
+/tests/config
 /dev_config/settings.cfg
 
 .env
@@ -39,4 +40,3 @@ htmlcov/
 dist/
 build/
 *.egg-info/
-

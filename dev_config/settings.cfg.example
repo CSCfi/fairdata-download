@@ -10,7 +10,7 @@
 ENVIRONMENT='DEV'
 
 # Trusted services
-TRUSTED_SERVICE_TOKEN="DEFINE_ME"
+TRUSTED_SERVICE_TOKEN='DEFINE_ME'
 
 # Volumes
 DOWNLOAD_CACHE_DIR='/mnt/download-service-cache'
@@ -34,10 +34,16 @@ MQ_PASS='DEFINE_ME'
 # JWT
 JWT_SECRET='DEFINE_ME'
 
+# IDA (used for automated tests)
+IDA_API_ROOT_URL="https://ida.fd-dev.csc.fi/"
+IDA_TEST_PROJECT='fd_test_download_project'
+IDA_TEST_USER='fd_test_download_user'
+IDA_TEST_PASS='DEFINE_ME'
+
 # Metax
-METAX_URL='https://metax.fd-stable.csc.fi/v3/'
+METAX_URL='https://metax.fairdata.fi/v3/'
 METAX_USER='download'
 METAX_PASS='DEFINE_ME'
 
-FDWE_API="https://metrics.fairdata.fi:4444"
-FDWE_TOKEN="DEFINE_ME"
+FDWE_API='https://metrics.fairdata.fi:4444'
+FDWE_TOKEN='DEFINE_ME'

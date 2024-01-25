@@ -106,3 +106,4 @@ systemctl enable fairdata-download-generator
 systemctl status -l fairdata-download
 systemctl status -l fairdata-download-generator
 systemctl status -l nginx
+

@@ -1,1 +1,36 @@
-../dev_config/utils/run-tests
+#!/usr/bin/env bash
+#--------------------------------------------------------------------------------
+# This script is used to execute autonated tests in a local development
+# instance of the download service. It should NOT be used in production.
+#--------------------------------------------------------------------------------
+
+SCRIPT="$(realpath $0)"
+TESTS=`dirname "$SCRIPT"`
+ROOT=`dirname "$TESTS"`
+
+source $ROOT/utils/init-dev-script.sh
+source $ROOT/venv/bin/activate
+
+cd $ROOT
+
+echo "UNIT TESTS:"
+
+coverage run -m pytest -p no:warnings
+
+if [ $? -ne 0 ]; then
+    exit 1
+fi
+
+echo "BEHAVIORAL TESTS:"
+
+python -W ignore -m unittest discover -f -q tests.download
+
+if [ $? -ne 0 ]; then
+    exit 1
+fi
+
+echo ""
+echo "======================================"
+echo "=== ALL EXECUTED TESTS SUCCESSFUL  ==="
+echo "======================================"
+echo ""

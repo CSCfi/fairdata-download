@@ -22,3 +22,4 @@ fi
 if [ -d $DOWNLOAD_CACHE_DIR/mock_notifications ]; then
     rm -f $DOWNLOAD_CACHE_DIR/mock_notifications/*
 fi
+

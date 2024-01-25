@@ -38,5 +38,5 @@ rabbitmqctl add_user "$MQ_USER" "$MQ_PASS"
 rabbitmqctl add_vhost "$MQ_VHOST"
 
 rabbitmqctl set_permissions -p "$MQ_VHOST" "$MQ_USER" '.*' '.*' '.*'
-
 rabbitmqctl set_user_tags "$MQ_USER" management
+
