@@ -50,7 +50,7 @@ fi
 METAX_URL=$(echo "$METAX_URL" | sed -e 's/\/$//')
 IDA_URL=$(echo "$IDA_URL" | sed -e 's/\/$//')
 
-METAX_VERSION=$(echo "$METAX_URL" | grep '/v3/')
+METAX_VERSION=$(echo "$METAX_URL" | grep '/v3')
 if [ -n "$METAX_VERSION" ]; then
     METAX_VERSION=3
 else

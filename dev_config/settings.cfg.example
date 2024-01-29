@@ -42,7 +42,6 @@ IDA_TEST_PASS='DEFINE_ME'
 
 # Metax
 METAX_URL='https://metax.fairdata.fi/v3/'
-METAX_USER='download'
 METAX_PASS='DEFINE_ME'
 
 FDWE_API='https://metrics.fairdata.fi:4444'

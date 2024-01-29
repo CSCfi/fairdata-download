@@ -119,7 +119,6 @@ class TestHousekeeping(unittest.TestCase):
         if int(os.environ['METAX_VERSION']) >= 3:
             dataset_data = DATASET_TEMPLATE_V3
             dataset_data['metadata_owner']['user'] = self.ida_user
-            dataset_data['persistent_identifier'] = "%s_test_dataset_1" % self.ida_project
             dataset_data['title'] = DATASET_TITLES[0]
             dataset_data['fileset'] = {
                 "storage_service": "ida",
