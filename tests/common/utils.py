@@ -37,16 +37,17 @@ DATASET_TEMPLATE_V3 = {
             "url": "http://uri.suomi.fi/codelist/fairdata/access_type/code/open"
         }
     },
-    "creator": [
+    "actors": [
         {
-            "@type": "Person",
-            "member_of": {
-                "@type": "Organization",
-                "name": {
-                    "en": "Test Organization"
-                }
+            "roles": [
+                "creator", "publisher"
+            ],
+            "person": {
+                "name": "Test User A"
             },
-            "name": "Test User"
+            "organization": {
+                "url": "http://uri.suomi.fi/codelist/fairdata/organization/code/09206320"
+            }
         }
     ],
     "description": {
