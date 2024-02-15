@@ -9,6 +9,8 @@
 
 ENVIRONMENT='DEV'
 
+DOWNLOAD_HOST='download.fd-dev.csc.fi'
+
 # Trusted services
 TRUSTED_SERVICE_TOKEN='DEFINE_ME'
 
@@ -20,13 +22,12 @@ IDA_DATA_ROOT='/mnt/download-ida-storage'
 DATABASE_FILE='/mnt/download-service-cache/download.db'
 
 # Cache
-CACHE_PURGE_THRESHOLD=1073741824 # 1GB
-CACHE_PURGE_TARGET=786432000     # 750MB
-
-TASK_RETRY_DELAY=5
+CACHE_PURGE_THRESHOLD='1073741824' # 1GB
+CACHE_PURGE_TARGET='786432000'     # 750MB
+TASK_RETRY_DELAY='60'
 
 # Message queue
-MQ_HOST='localhost'
+MQ_HOST='download.fd-dev.csc.fi'
 MQ_VHOST='download'
 MQ_USER='download'
 MQ_PASS='DEFINE_ME'
@@ -35,7 +36,7 @@ MQ_PASS='DEFINE_ME'
 JWT_SECRET='DEFINE_ME'
 
 # IDA (used for automated tests)
-IDA_API_ROOT_URL="https://ida.fd-dev.csc.fi/"
+IDA_API="https://ida.fd-dev.csc.fi/"
 IDA_TEST_PROJECT='fd_test_download_project'
 IDA_TEST_USER='fd_test_download_user'
 IDA_TEST_PASS='DEFINE_ME'

@@ -100,8 +100,7 @@ def get_dataset(dataset):
         metax_response = get_metax('datasets/%s' % dataset)
 
         if metax_response.status_code == 404:
-            current_app.logger.error(
-                "Dataset '%s' not found in Metax API" % dataset)
+            current_app.logger.error("Dataset '%s' was not found in Metax API" % dataset)
             raise DatasetNotFound(dataset)
         elif metax_response.status_code != 200:
             current_app.logger.error("Received unexpected status code '%s' from Metax API" % metax_response.status_code)

@@ -27,7 +27,9 @@ def create_celery_app(app=None):
 
     :param app: Flask application to hook celery application into
     """
-    app = app or create_flask_app()
+
+    if not app:
+        app = create_flask_app()
  
     normalize_logging(app)
 
@@ -68,5 +70,5 @@ def generate_task(self, dataset, project_identifier, scope):
     """Celery task for generating download packages in background."""
     # If the IDA service is offline, retry the task after the configured delay (default 60 seconds)
     if ida_service_is_offline(current_app):
-        raise self.retry(countdown=current_app.config.get('TASK_RETRY_DELAY', 60), max_retries=None)
+        raise self.retry(countdown=int(current_app.config.get('TASK_RETRY_DELAY', 60)), max_retries=None)
     return generate(dataset, project_identifier, scope, self.request.id)

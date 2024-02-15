@@ -25,6 +25,7 @@ import time
 import os
 import sys
 import socket
+from download.utils import BearerAuth
 from tests.common.utils import *
 
 
@@ -46,12 +47,12 @@ class TestHousekeeping(unittest.TestCase):
         # timeout when waiting for actions to complete
         self.timeout = 600 # 10 minutes
 
-        self.hostname = socket.getfqdn()
+        self.hostname = os.environ.get('DOWNLOAD_HOST', socket.getfqdn())
 
         if int(os.environ['METAX_VERSION']) >= 3:
             self.metax_headers = { 'Authorization': 'Token %s' % os.environ['METAX_PASS'] }
         else:
-            self.metax_user = (os.environ['METAX_USER'], os.environ['METAX_PASS'])
+            self.metax_user_auth = (os.environ['METAX_USER'], os.environ['METAX_PASS'])
 
         self.ida_project = os.environ['IDA_TEST_PROJECT']
         self.ida_user = os.environ['IDA_TEST_USER']
@@ -82,20 +83,7 @@ class TestHousekeeping(unittest.TestCase):
 
     def test_housekeeping(self):
 
-        """
-        Overview:
-
-        1. The test project and user account will be created and initialized as usual.
-
-        2. Project A will have one folder frozen, and the tests will wait until all postprocessing
-           has completed such that all metadata is recorded in Metax.
-
-        3. A dataset will be created in Metax, with files included from the frozen folder.
-
-        4. The download service will be tested based on the defined dataset, requesting generation of
-           multiple packages, both for full and partial dataset, listings of pending and available
-           package generation, retrieval of authorization tokens, and download of individual files.
-        """
+        print("-- Initialization")
 
         print("Freezing folder")
         data = {"project": self.ida_project, "pathname": "/testdata"}
@@ -113,9 +101,9 @@ class TestHousekeeping(unittest.TestCase):
         response = requests.get("%s/apps/ida/api/files/action/%s" % (os.environ["IDA_URL"], action_data["pid"]), auth=self.ida_user_auth, verify=False)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         files = response.json()
-        self.assertEqual(len(files), 5)
+        self.assertEqual(len(files), 10)
 
-        print("Creating dataset containing all files in scope of frozen folder")
+        print("Creating dataset 1 containing all files in scope of frozen folder")
         if int(os.environ['METAX_VERSION']) >= 3:
             dataset_data = DATASET_TEMPLATE_V3
             dataset_data['metadata_owner']['user'] = self.ida_user
@@ -136,33 +124,70 @@ class TestHousekeeping(unittest.TestCase):
             dataset_data['metadata_provider_user'] = self.ida_user
             dataset_data['research_dataset']['title'] = DATASET_TITLES[0]
             dataset_data['research_dataset']['files'] = build_dataset_files(self, files)
-            response = requests.post("%s/rest/v1/datasets" % os.environ['METAX_URL'], json=dataset_data, auth=self.metax_user)
+            response = requests.post("%s/rest/v1/datasets" % os.environ['METAX_URL'], json=dataset_data, auth=self.metax_user_auth)
         self.assertEqual(response.status_code, 201, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         dataset = response.json()
         if int(os.environ['METAX_VERSION']) >= 3:
-            dataset_pid = dataset.get('id')
+            dataset_id_1 = dataset.get('id')
         else:
-            dataset_pid = dataset.get('identifier')
-        self.assertIsNotNone(dataset_pid)
+            dataset_id_1 = dataset.get('identifier')
+        self.assertIsNotNone(dataset_id_1)
+
+        print("Creating dataset 2 containing subdirectory of frozen folder")
+        if int(os.environ['METAX_VERSION']) >= 3:
+            dataset_data = DATASET_TEMPLATE_V3
+            dataset_data['metadata_owner']['user'] = self.ida_user
+            dataset_data['title'] = DATASET_TITLES[0]
+            dataset_data['fileset'] = {
+                "storage_service": "ida",
+                "csc_project": self.ida_project,
+                "directory_actions": [
+                    {
+                        "action": "add",
+                        "pathname": "/testdata/baseline/"
+                    }
+                ]
+            }
+            response = requests.post("%s/datasets" % os.environ['METAX_URL'], headers=self.metax_headers, json=dataset_data)
+        else:
+            dataset_data = DATASET_TEMPLATE_V1
+            dataset_data['metadata_provider_user'] = self.ida_user
+            dataset_data['research_dataset']['title'] = DATASET_TITLES[0]
+            baseline_files = []
+            for file in files:
+                if file['pathname'].startswith('/testdata/baseline/'):
+                    baseline_files.append(file)
+            dataset_data['research_dataset']['files'] = build_dataset_files(self, baseline_files)
+            response = requests.post("%s/rest/v1/datasets" % os.environ['METAX_URL'], json=dataset_data, auth=self.metax_user_auth)
+        self.assertEqual(response.status_code, 201, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
+        dataset = response.json()
+        if int(os.environ['METAX_VERSION']) >= 3:
+            dataset_id_2 = dataset.get('id')
+        else:
+            dataset_id_2 = dataset.get('identifier')
+        self.assertIsNotNone(dataset_id_2)
+        self.assertNotEqual(dataset_id_1, dataset_id_2)
 
         # --------------------------------------------------------------------------------
 
+        print("-- Package older than dataset")
+
         print("Verify that no active package generation requests exist for dataset")
-        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_pid), auth=self.token_auth)
+        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id_1), auth=self.token_auth)
         self.assertEqual(response.status_code, 404, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
 
         print("Request generation of complete dataset package")
-        data = { "dataset": dataset_pid }
+        data = { "dataset": dataset_id_1 }
         response = requests.post("https://%s:4431/requests" % self.hostname, json=data, auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         response_json = response.json()
         self.assertIsNotNone(response_json)
-        self.assertEqual(response_json.get('dataset'), dataset_pid, response.content.decode(sys.stdout.encoding))
+        self.assertEqual(response_json.get('dataset'), dataset_id_1, response.content.decode(sys.stdout.encoding))
 
-        wait_for_pending_requests(self, dataset_pid)
+        wait_for_pending_requests(self, dataset_id_1)
 
         print("Verify complete dataset package is reported in package listing")
-        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_pid), auth=self.token_auth)
+        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id_1), auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         response_json = response.json()
         self.assertEqual(response_json.get('status'), 'SUCCESS')
@@ -170,12 +195,12 @@ class TestHousekeeping(unittest.TestCase):
         self.assertIsNotNone(package)
 
         print("Verify complete dataset package exists in cache")
-        cmd = "%s/utils/package-stats %s 2>&1 >/dev/null" % (os.environ["ROOT"], package)
+        cmd = "%s/utils/package-stats %s >/dev/null 2>&1" % (os.environ["ROOT"], package)
         result = os.system(cmd)
         self.assertEqual(result, 0)
 
         print("Authorize complete dataset package download")
-        data = { "dataset": dataset_pid, "package": package }
+        data = { "dataset": dataset_id_1, "package": package }
         response = requests.post("https://%s:4431/authorize" % self.hostname, json=data, auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         token = response.json().get('token')
@@ -186,7 +211,7 @@ class TestHousekeeping(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
 
         print("Authorize complete dataset package download")
-        data = { "dataset": dataset_pid, "package": package }
+        data = { "dataset": dataset_id_1, "package": package }
         response = requests.post("https://%s:4431/authorize" % self.hostname, json=data, auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         token = response.json().get('token')
@@ -203,16 +228,16 @@ class TestHousekeeping(unittest.TestCase):
         self.assertEqual(response.status_code, 409, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
 
         print("Attempt to authorize outdated complete dataset package download")
-        data = { "dataset": dataset_pid, "package": package }
+        data = { "dataset": dataset_id_1, "package": package }
         response = requests.post("https://%s:4431/authorize" % self.hostname, json=data, auth=self.token_auth)
         self.assertEqual(response.status_code, 409, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
 
         print("Verify outdated complete dataset package is no longer listed with available packages for dataset")
-        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_pid), auth=self.token_auth)
+        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id_1), auth=self.token_auth)
         self.assertEqual(response.status_code, 404, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
 
         print("Verify outdated complete dataset package still exists in cache")
-        cmd = "%s/utils/package-stats %s 2>&1 >/dev/null" % (os.environ["ROOT"], package)
+        cmd = "%s/utils/package-stats %s >/dev/null 2>&1" % (os.environ["ROOT"], package)
         result = os.system(cmd)
         self.assertEqual(result, 0)
 
@@ -221,17 +246,17 @@ class TestHousekeeping(unittest.TestCase):
         print("Old package: %s" % old_package)
 
         print("Request generation of new complete dataset package (triggers housekeeping, removing old package)")
-        data = { "dataset": dataset_pid }
+        data = { "dataset": dataset_id_1 }
         response = requests.post("https://%s:4431/requests" % self.hostname, json=data, auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         response_json = response.json()
         self.assertIsNotNone(response_json)
-        self.assertEqual(response_json.get('dataset'), dataset_pid, response.content.decode(sys.stdout.encoding))
+        self.assertEqual(response_json.get('dataset'), dataset_id_1, response.content.decode(sys.stdout.encoding))
 
-        wait_for_pending_requests(self, dataset_pid)
+        wait_for_pending_requests(self, dataset_id_1)
 
         print("Verify new complete dataset package is reported in package listing")
-        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_pid), auth=self.token_auth)
+        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id_1), auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         response_json = response.json()
         self.assertEqual(response_json.get('status'), 'SUCCESS')
@@ -239,7 +264,7 @@ class TestHousekeeping(unittest.TestCase):
         self.assertIsNotNone(package)
 
         print("Verify new complete dataset package exists in cache")
-        cmd = "%s/utils/package-stats %s 2>&1 >/dev/null" % (os.environ["ROOT"], package)
+        cmd = "%s/utils/package-stats %s >/dev/null 2>&1" % (os.environ["ROOT"], package)
         result = os.system(cmd)
         self.assertEqual(result, 0)
 
@@ -250,22 +275,26 @@ class TestHousekeeping(unittest.TestCase):
 
         flush_download(self)
 
+        # --------------------------------------------------------------------------------
+
+        print("-- Zero package file size in database")
+
         print("Verify that no active package generation requests exist for dataset")
-        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_pid), auth=self.token_auth)
+        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id_1), auth=self.token_auth)
         self.assertEqual(response.status_code, 404, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
 
         print("Request generation of complete dataset package")
-        data = { "dataset": dataset_pid }
+        data = { "dataset": dataset_id_1 }
         response = requests.post("https://%s:4431/requests" % self.hostname, json=data, auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         response_json = response.json()
         self.assertIsNotNone(response_json)
-        self.assertEqual(response_json.get('dataset'), dataset_pid, response.content.decode(sys.stdout.encoding))
+        self.assertEqual(response_json.get('dataset'), dataset_id_1, response.content.decode(sys.stdout.encoding))
 
-        wait_for_pending_requests(self, dataset_pid)
+        wait_for_pending_requests(self, dataset_id_1)
 
         print("Verify complete dataset package is reported in package listing")
-        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_pid), auth=self.token_auth)
+        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id_1), auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         response_json = response.json()
         self.assertEqual(response_json.get('status'), 'SUCCESS')
@@ -273,7 +302,7 @@ class TestHousekeeping(unittest.TestCase):
         self.assertIsNotNone(package)
 
         print("Verify complete dataset package exists in cache")
-        cmd = "%s/utils/package-stats %s 2>&1 >/dev/null" % (os.environ["ROOT"], package)
+        cmd = "%s/utils/package-stats %s >/dev/null 2>&1" % (os.environ["ROOT"], package)
         result = os.system(cmd)
         self.assertEqual(result, 0)
 
@@ -288,27 +317,31 @@ class TestHousekeeping(unittest.TestCase):
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
 
         print("Verify complete dataset package is no longer listed with available packages for dataset")
-        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_pid), auth=self.token_auth)
+        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id_1), auth=self.token_auth)
         self.assertEqual(response.status_code, 404, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
 
         flush_download(self)
 
+        # --------------------------------------------------------------------------------
+
+        print("-- Zero package file size on disk")
+
         print("Verify that no active package generation requests exist for dataset")
-        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_pid), auth=self.token_auth)
+        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id_1), auth=self.token_auth)
         self.assertEqual(response.status_code, 404, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
 
         print("Request generation of complete dataset package")
-        data = { "dataset": dataset_pid }
+        data = { "dataset": dataset_id_1 }
         response = requests.post("https://%s:4431/requests" % self.hostname, json=data, auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         response_json = response.json()
         self.assertIsNotNone(response_json)
-        self.assertEqual(response_json.get('dataset'), dataset_pid, response.content.decode(sys.stdout.encoding))
+        self.assertEqual(response_json.get('dataset'), dataset_id_1, response.content.decode(sys.stdout.encoding))
 
-        wait_for_pending_requests(self, dataset_pid)
+        wait_for_pending_requests(self, dataset_id_1)
 
         print("Verify complete dataset package is reported in package listing")
-        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_pid), auth=self.token_auth)
+        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id_1), auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         response_json = response.json()
         self.assertEqual(response_json.get('status'), 'SUCCESS')
@@ -316,12 +349,12 @@ class TestHousekeeping(unittest.TestCase):
         self.assertIsNotNone(package)
 
         print("Verify complete dataset package exists in cache")
-        cmd = "%s/utils/package-stats %s 2>&1 >/dev/null" % (os.environ["ROOT"], package)
+        cmd = "%s/utils/package-stats %s >/dev/null 2>&1" % (os.environ["ROOT"], package)
         result = os.system(cmd)
         self.assertEqual(result, 0)
 
         print("Update package file size in cache to be zero")
-        cmd = "%s/utils/empty-package-file %s 2>&1 >/dev/null" % (os.environ["ROOT"], package)
+        cmd = "%s/utils/empty-package-file %s >/dev/null 2>&1" % (os.environ["ROOT"], package)
         result = os.system(cmd)
         self.assertEqual(result, 0)
 
@@ -330,8 +363,113 @@ class TestHousekeeping(unittest.TestCase):
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
 
         print("Verify complete dataset package is no longer listed with available packages for dataset")
-        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_pid), auth=self.token_auth)
+        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id_1), auth=self.token_auth)
         self.assertEqual(response.status_code, 404, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
+
+        flush_download(self)
+
+        # --------------------------------------------------------------------------------
+
+        print("-- Dataset no longer in Metax (housekeeping using CLI command)")
+
+        print("Verify that no active package generation requests exist for dataset")
+        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id_1), auth=self.token_auth)
+        self.assertEqual(response.status_code, 404, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
+
+        print("Request generation of package for dataset 1")
+        data = { "dataset": dataset_id_1 }
+        response = requests.post("https://%s:4431/requests" % self.hostname, json=data, auth=self.token_auth)
+        self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
+        response_json = response.json()
+        self.assertIsNotNone(response_json)
+        self.assertEqual(response_json.get('dataset'), dataset_id_1, response.content.decode(sys.stdout.encoding))
+
+        print("Request generation of package for dataset 2")
+        data = { "dataset": dataset_id_2 }
+        response = requests.post("https://%s:4431/requests" % self.hostname, json=data, auth=self.token_auth)
+        self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
+        response_json = response.json()
+        self.assertIsNotNone(response_json)
+        self.assertEqual(response_json.get('dataset'), dataset_id_2, response.content.decode(sys.stdout.encoding))
+
+        wait_for_pending_requests(self, dataset_id_1)
+        wait_for_pending_requests(self, dataset_id_2)
+
+        print("Verify dataset 1 package is reported in package listing")
+        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id_1), auth=self.token_auth)
+        self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
+        response_json = response.json()
+        self.assertEqual(response_json.get('status'), 'SUCCESS')
+        package_1 = response_json.get('package')
+        self.assertIsNotNone(package_1)
+
+        print("Verify dataset 2 package is reported in package listing")
+        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id_2), auth=self.token_auth)
+        self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
+        response_json = response.json()
+        self.assertEqual(response_json.get('status'), 'SUCCESS')
+        package_2 = response_json.get('package')
+        self.assertIsNotNone(package_2)
+        self.assertNotEqual(package_1, package_2)
+
+        print("Verify dataset 1 package file exists in cache")
+        cmd = "%s/utils/package-stats %s >/dev/null 2>&1" % (os.environ["ROOT"], package_1)
+        result = os.system(cmd)
+        self.assertEqual(result, 0)
+
+        print("Verify dataset 2 package file exists in cache")
+        cmd = "%s/utils/package-stats %s >/dev/null 2>&1" % (os.environ["ROOT"], package_2)
+        result = os.system(cmd)
+        self.assertEqual(result, 0)
+
+        print("Delete datasets from Metax")
+        if int(os.environ['METAX_VERSION']) >= 3:
+            response = requests.delete("%s/users/%s/data?flush=true" % (os.environ['METAX_URL'], self.ida_user), headers=self.metax_headers)
+        else:
+            response = requests.post("%s/rpc/v1/datasets/flush_user_data?metadata_provider_user=%s" % (os.environ['METAX_URL'], self.ida_user), auth=self.metax_user_auth)
+        self.assertEqual(response.status_code, 204, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
+
+        print("Verify dataset 1 no longer in Metax")
+        if int(os.environ['METAX_VERSION']) >= 3:
+            response = requests.get("%s/datasets/%s" % (os.environ['METAX_URL'], dataset_id_1), headers=self.metax_headers)
+        else:
+            response = requests.get("%s/rest/v1/datasets/%s" % (os.environ['METAX_URL'], dataset_id_1), auth=self.metax_user_auth)
+        self.assertEqual(response.status_code, 404, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
+
+        print("Verify dataset 2 no longer in Metax")
+        if int(os.environ['METAX_VERSION']) >= 3:
+            response = requests.get("%s/datasets/%s" % (os.environ['METAX_URL'], dataset_id_2), headers=self.metax_headers)
+        else:
+            response = requests.get("%s/rest/v1/datasets/%s" % (os.environ['METAX_URL'], dataset_id_2), auth=self.metax_user_auth)
+        self.assertEqual(response.status_code, 404, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
+
+        print("Run housekeeping to purge now-invalid packages for datasets 1 and 2, using CLI command")
+        cmd = "%s/cli/cache-cli housekeep >/dev/null 2>&1" % os.environ["ROOT"]
+        result = os.system(cmd)
+        self.assertEqual(result, 0)
+        #print("Run housekeeping to purge now-invalid packages for datasets 1 and 2")
+        #response = requests.post("https://%s:4431/housekeep" % self.hostname, auth=self.token_auth)
+        #self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
+
+        print("Verify dataset 1 package file no longer exists in cache")
+        cmd = "%s/utils/package-stats %s >/dev/null 2>&1" % (os.environ["ROOT"], package_1)
+        result = os.system(cmd)
+        self.assertNotEqual(result, 0)
+
+        print("Verify dataset 2 package file no longer exists in cache")
+        cmd = "%s/utils/package-stats %s >/dev/null 2>&1" % (os.environ["ROOT"], package_2)
+        result = os.system(cmd)
+        self.assertNotEqual(result, 0)
+
+        print("Verify complete dataset 1 package is no longer listed with available packages for dataset")
+        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id_1), auth=self.token_auth)
+        self.assertEqual(response.status_code, 404, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
+
+        print("Verify complete dataset 2 package is no longer listed with available packages for dataset")
+        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id_2), auth=self.token_auth)
+        self.assertEqual(response.status_code, 404, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
+
+        flush_download(self)
 
         # --------------------------------------------------------------------------------
         # If all tests passed, record success, in which case tearDown will be done

@@ -28,8 +28,10 @@
     explicitly via a cron job, if that is later decided to be more optimal.
 """
 import os
+import sys
 import pendulum
 import logging
+import requests
 from dataclasses import asdict
 from typing import List
 from flask import current_app
@@ -38,7 +40,7 @@ from tabulate import tabulate
 from . import db
 from . import metax
 from ..dto import Package
-from ..utils import normalize_timestamp, normalize_logging
+from ..utils import normalize_timestamp, normalize_logging, BearerAuth
 
 GB = 1073741824
 
@@ -94,7 +96,8 @@ def validate_package_cache():
         message = "Invalid packages to be removed from cache:\n" + tabulate([asdict(i) for i in remove], headers="keys")
         status = status + "\n" + message
         current_app.logger.info(message)
-        remove_cache_files(remove)
+        removed_files = remove_cache_files(remove)
+        status = status + "\n" + "Packages removed:\n   " + "\n   ".join(removed_files)
     else:
         message = "No invalid packages found"
         status = status + "\n" + message
@@ -173,7 +176,7 @@ def identify_invalid_packages(active_packages: List[Package]):
                     current_app.logger.warn("Package %s is invalid: package file size recorded in database has zero size" % package.filename)
                 invalid_packages.append(package)
             # check package file size on disk not zero
-            if os.path.getsize(package_cache_pathname) == 0:
+            if os.path.exists(package_cache_pathname) and os.path.getsize(package_cache_pathname) == 0:
                 if current_app:
                     current_app.logger.warn("Package %s is invalid: package file in file system has zero size" % package.filename)
                 invalid_packages.append(package)
@@ -299,23 +302,39 @@ def print_statistics():
 
 
 def remove_cache_files(files_list: List[Package] = None):
-    if not files_list:
+
+    if not files_list or len(files_list) == 0:
+
         current_app.logger.warning(f"Empty file list to be removed from cache, aborting")
-        return
-    file_names = None
-    if files_list:
+
+    else:
+
         file_names = [i.filename for i in files_list]
-    removed = []
-    source_root = os.path.join(current_app.config["DOWNLOAD_CACHE_DIR"], "datasets")
-    for root, dirs, files in os.walk(source_root):
-        for name in files:
-            if file_names:
+
+        removed_files = []
+
+        # Remove all package records for the specified package filenames
+
+        db.delete_package_rows(file_names)
+
+        # Remove the actual package files, if they exist
+
+        source_root = os.path.join(current_app.config["DOWNLOAD_CACHE_DIR"], "datasets")
+
+        for root, dirs, files in os.walk(source_root):
+            for name in files:
                 if name in file_names:
-                    os.remove(os.path.join(root, name))
-                    removed.append(name)
-    db.delete_package_rows(removed)
-    current_app.logger.info(f"Removed {len(removed)} files")
-    current_app.logger.info(f"Removed file names: {removed}")
+                    package_cache_pathname = os.path.join(root, name)
+                    if os.path.exists(package_cache_pathname):
+                        os.remove(package_cache_pathname)
+                        removed_files.append(name)
+
+        current_app.logger.info(f"Removed {len(file_names)} package records")
+        current_app.logger.info(f"Removed {len(removed_files)} package files")
+        current_app.logger.info(f"Removed packages: {file_names}")
+        current_app.logger.info(f"Removed files: {removed_files}")
+
+        return(file_names)
 
 
 def get_datasets_dir():
@@ -342,31 +361,36 @@ cache_cli = AppGroup(
 @cache_cli.command("housekeep")
 def housekeep_command():
     """Execute cache housekeeping operation."""
-    print(perform_housekeeping())
+    response = requests.post("https://%s:4431/housekeep" % current_app.config['DOWNLOAD_HOST'], auth=BearerAuth(current_app.config['TRUSTED_SERVICE_TOKEN']))
+    print(response.content.decode(sys.stdout.encoding))
 
 
 @cache_cli.command("validate")
-def housekeep_command():
+def validate_command():
     """Execute cache validation operation."""
-    print(validate_package_cache())
+    response = requests.post("https://%s:4431/validate" % current_app.config['DOWNLOAD_HOST'], auth=BearerAuth(current_app.config['TRUSTED_SERVICE_TOKEN']))
+    print(response.content.decode(sys.stdout.encoding))
 
 
 @cache_cli.command("cleanup")
-def housekeep_command():
+def cleanup_command():
     """Execute cache housekeeping operation."""
-    print(cleanup_package_cache())
+    response = requests.post("https://%s:4431/cleanup" % current_app.config['DOWNLOAD_HOST'], auth=BearerAuth(current_app.config['TRUSTED_SERVICE_TOKEN']))
+    print(response.content.decode(sys.stdout.encoding))
 
 
 @cache_cli.command("purge")
 def purge_command():
     """Execute cache purge operation."""
-    print(purge_ghost_files())
+    response = requests.post("https://%s:4431/purge" % current_app.config['DOWNLOAD_HOST'], auth=BearerAuth(current_app.config['TRUSTED_SERVICE_TOKEN']))
+    print(response.content.decode(sys.stdout.encoding))
 
 
 @cache_cli.command("stats")
 def stats_command():
     """Print general cache volume usage statistics."""
-    print(print_statistics())
+    response = requests.post("https://%s:4431/stats" % current_app.config['DOWNLOAD_HOST'], auth=BearerAuth(current_app.config['TRUSTED_SERVICE_TOKEN']))
+    print(response.content.decode(sys.stdout.encoding))
 
 
 def init_app(app):
@@ -374,5 +398,4 @@ def init_app(app):
 
     :param app: Flask application to hook module into.
     """
-    normalize_logging(app)
     app.cli.add_command(cache_cli)

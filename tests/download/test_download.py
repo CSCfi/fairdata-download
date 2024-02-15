@@ -26,6 +26,7 @@ import os
 import sys
 import socket
 import json
+from download.utils import BearerAuth
 from tests.common.utils import *
 
 
@@ -46,12 +47,12 @@ class TestDownload(unittest.TestCase):
         # timeout when waiting for actions to complete
         self.timeout = 600 # 10 minutes
 
-        self.hostname = socket.getfqdn()
+        self.hostname = os.environ.get('DOWNLOAD_HOST', socket.getfqdn())
 
         if int(os.environ['METAX_VERSION']) >= 3:
             self.metax_headers = { 'Authorization': 'Token %s' % os.environ['METAX_PASS'] }
         else:
-            self.metax_user = (os.environ['METAX_USER'], os.environ['METAX_PASS'])
+            self.metax_user_auth = (os.environ['METAX_USER'], os.environ['METAX_PASS'])
 
         self.ida_project = os.environ['IDA_TEST_PROJECT']
         self.ida_user = os.environ['IDA_TEST_USER']
@@ -114,7 +115,7 @@ class TestDownload(unittest.TestCase):
         response = requests.get("%s/apps/ida/api/files/action/%s" % (os.environ["IDA_URL"], action_data["pid"]), auth=self.ida_user_auth, verify=False)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         files = response.json()
-        self.assertEqual(len(files), 5)
+        self.assertEqual(len(files), 10)
 
         print("Creating dataset containing all files in scope of frozen folder")
         if int(os.environ['METAX_VERSION']) >= 3:
@@ -138,26 +139,26 @@ class TestDownload(unittest.TestCase):
             dataset_data['research_dataset']['title'] = DATASET_TITLES[0]
             dataset_data['research_dataset']['files'] = build_dataset_files(self, files)
             url = "%s/rest/v1/datasets" % os.environ['METAX_URL']
-            response = requests.post(url, json=dataset_data, auth=self.metax_user)
+            response = requests.post(url, json=dataset_data, auth=self.metax_user_auth)
         self.assertEqual(response.status_code, 201, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         dataset = response.json()
         if int(os.environ['METAX_VERSION']) >= 3:
-            dataset_pid = dataset.get('id')
+            dataset_id = dataset.get('id')
         else:
-            dataset_pid = dataset.get('identifier')
-        self.assertIsNotNone(dataset_pid)
+            dataset_id = dataset.get('identifier')
+        self.assertIsNotNone(dataset_id)
 
         # --------------------------------------------------------------------------------
 
         print("Verify that no active package generation requests exist for dataset")
-        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_pid), auth=self.token_auth)
+        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id), auth=self.token_auth)
         self.assertEqual(response.status_code, 404, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
 
         print("Authorize individual dataset file download")
         file = files[0]
         filename = file.get('pathname')
         self.assertIsNotNone(filename)
-        data = { "dataset": dataset_pid, "file": filename }
+        data = { "dataset": dataset_id, "file": filename }
         url = "https://%s:4431/authorize" % self.hostname
         response = requests.post("https://%s:4431/authorize" % self.hostname, json=data, auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
@@ -173,17 +174,17 @@ class TestDownload(unittest.TestCase):
         self.assertEqual(response.status_code, 401, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
 
         print("Request generation of complete dataset package")
-        data = { "dataset": dataset_pid }
+        data = { "dataset": dataset_id }
         response = requests.post("https://%s:4431/requests" % self.hostname, json=data, auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         response_json = response.json()
         self.assertIsNotNone(response_json)
-        self.assertEqual(response_json.get('dataset'), dataset_pid, response.content.decode(sys.stdout.encoding))
+        self.assertEqual(response_json.get('dataset'), dataset_id, response.content.decode(sys.stdout.encoding))
 
-        wait_for_pending_requests(self, dataset_pid)
+        wait_for_pending_requests(self, dataset_id)
 
         print("Verify complete dataset package is reported in package listing")
-        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_pid), auth=self.token_auth)
+        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id), auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         response_json = response.json()
         self.assertEqual(response_json.get('status'), 'SUCCESS')
@@ -196,7 +197,7 @@ class TestDownload(unittest.TestCase):
         self.assertEqual(result, 0)
 
         print("Authorize complete dataset package download")
-        data = { "dataset": dataset_pid, "package": package }
+        data = { "dataset": dataset_id, "package": package }
         response = requests.post("https://%s:4431/authorize" % self.hostname, json=data, auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         token = response.json().get('token')
@@ -207,17 +208,17 @@ class TestDownload(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
 
         print("Request generation of a partial dataset package")
-        data = { "dataset": dataset_pid, "scope": [ "/testdata/test01.dat", "/testdata/test03.dat", "/testdata/test05.dat" ] }
+        data = { "dataset": dataset_id, "scope": [ "/testdata/test01.dat", "/testdata/test03.dat", "/testdata/test05.dat" ] }
         response = requests.post("https://%s:4431/requests" % self.hostname, json=data, auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         response_json = response.json()
         self.assertIsNotNone(response_json)
-        self.assertEqual(response_json.get('dataset'), dataset_pid, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
+        self.assertEqual(response_json.get('dataset'), dataset_id, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
 
-        wait_for_pending_requests(self, dataset_pid)
+        wait_for_pending_requests(self, dataset_id)
 
         print("Verify partial dataset package is reported in package listing")
-        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_pid), auth=self.token_auth)
+        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id), auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         response_json = response.json()
         partial = response_json.get('partial')
@@ -239,7 +240,7 @@ class TestDownload(unittest.TestCase):
         self.assertEqual(result, 0)
 
         print("Authorize partial dataset package download")
-        data = { "dataset": dataset_pid, "package": package }
+        data = { "dataset": dataset_id, "package": package }
         response = requests.post("https://%s:4431/authorize" % self.hostname, json=data, auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         token = response.json().get('token')
@@ -255,7 +256,7 @@ class TestDownload(unittest.TestCase):
             return
 
         print("Authorize individual dataset file download")
-        data = { "dataset": dataset_pid, "file": filename }
+        data = { "dataset": dataset_id, "file": filename }
         response = requests.post("https://%s:4431/authorize" % self.hostname, json=data, auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         token = response.json().get('token')
@@ -266,7 +267,7 @@ class TestDownload(unittest.TestCase):
         self.assertEqual(response.status_code, 503, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
 
         print("Authorize existing dataset package download")
-        data = { "dataset": dataset_pid, "package": package }
+        data = { "dataset": dataset_id, "package": package }
         response = requests.post("https://%s:4431/authorize" % self.hostname, json=data, auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         token = response.json().get('token')
@@ -280,43 +281,43 @@ class TestDownload(unittest.TestCase):
         flush_download(self)
 
         print("Request generation of complete dataset package")
-        data = { "dataset": dataset_pid }
+        data = { "dataset": dataset_id }
         response = requests.post("https://%s:4431/requests" % self.hostname, json=data, auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         response_json = response.json()
         self.assertIsNotNone(response_json)
-        self.assertEqual(response_json.get('dataset'), dataset_pid, response.content.decode(sys.stdout.encoding))
+        self.assertEqual(response_json.get('dataset'), dataset_id, response.content.decode(sys.stdout.encoding))
 
         print("Verify that package generation request is pending")
-        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_pid), auth=self.token_auth)
+        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id), auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         response_json = response.json()
         self.assertTrue(response_json.get('status') in ['STARTED', 'RETRY', 'PENDING'], response.content.decode(sys.stdout.encoding))
 
         print("Subscribe to notification of generation of dataset package")
-        data = { "dataset": dataset_pid, "subscriptionData": "abcdef", "notifyURL": "https://%s:4431/mock_notify" % socket.gethostname() }
-        notification_file = "%s/data/download-cache/mock_notifications/abcdef" % os.environ['ROOT']
+        data = { "dataset": dataset_id, "subscriptionData": "abcdef", "notifyURL": "https://%s:4431/mock_notify" % socket.gethostname() }
+        notification_file = "%s/mock_notifications/abcdef" % os.environ['DOWNLOAD_CACHE_DIR']
         response = requests.post("https://%s:4431/subscribe" % self.hostname, json=data, auth=self.token_auth)
         self.assertEqual(response.status_code, 201, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         response_json = response.json()
         self.assertIsNotNone(response_json)
-        self.assertEqual(response_json.get('dataset'), dataset_pid, response.content.decode(sys.stdout.encoding))
+        self.assertEqual(response_json.get('dataset'), dataset_id, response.content.decode(sys.stdout.encoding))
 
         print("(sleeping...)")
         time.sleep(5)
 
         print("Verify that package generation request is still pending")
-        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_pid), auth=self.token_auth)
+        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id), auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         response_json = response.json()
         self.assertTrue(response_json.get('status') in ['STARTED', 'RETRY', 'PENDING'], response.content.decode(sys.stdout.encoding))
 
         self.assertTrue(make_ida_online(self))
 
-        wait_for_pending_requests(self, dataset_pid)
+        wait_for_pending_requests(self, dataset_id)
 
         print("Verify complete dataset package is reported in package listing")
-        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_pid), auth=self.token_auth)
+        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id), auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         response_json = response.json()
         self.assertEqual(response_json.get('status'), 'SUCCESS')
@@ -333,7 +334,7 @@ class TestDownload(unittest.TestCase):
 
         print("Authorize complete dataset package download")
         package = response_json.get('package')
-        data = { "dataset": dataset_pid, "package": package }
+        data = { "dataset": dataset_id, "package": package }
         response = requests.post("https://%s:4431/authorize" % self.hostname, json=data, auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         token = response.json().get('token')
@@ -344,7 +345,7 @@ class TestDownload(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
 
         print("Authorize individual dataset file download")
-        data = { "dataset": dataset_pid, "file": filename }
+        data = { "dataset": dataset_id, "file": filename }
         response = requests.post("https://%s:4431/authorize" % self.hostname, json=data, auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         token = response.json().get('token')

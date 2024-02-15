@@ -18,18 +18,29 @@ os.umask(0o007)
 os.environ["TZ"] = "UTC"
 time.tzset()
 
+app_initialized = False
+
 
 def create_flask_app():
     """"Application Factory for Download Service Flask application"""
 
+    global app_initialized
+    global flask_app
+    
+    # Check if the app has already been initialized
+    if app_initialized:
+        flask_app.logger.info("Flask app is already initialized. Avoiding re-initialization.")
+        return flask_app
+
     app = Flask(__name__, instance_relative_config=True)
     
+    app_initialized = True
+
     app.logger.setLevel(logging.INFO)
 
-    # Logging
+    # We only want to use the gunicorn logging handlers, not the default flask logging handlers
     try:
-        gunicorn_error_logger = logging.getLogger('gunicorn.error')
-        app.logger.handlers.extend(gunicorn_error_logger.handlers)
+        app.logger.handlers = logging.getLogger('gunicorn.error').handlers
     except Exception as e:
         app.logger.error(e)
 
@@ -73,4 +84,5 @@ def create_flask_app():
 
     return app
 
-flask_app = create_flask_app()
+if not app_initialized:
+    flask_app = create_flask_app()

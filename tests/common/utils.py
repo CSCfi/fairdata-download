@@ -100,14 +100,6 @@ DATASET_TITLES = [
 ]
 
 
-class BearerAuth(requests.auth.AuthBase):
-    def __init__(self, token):
-        self.token = token
-    def __call__(self, r):
-        r.headers["authorization"] = "Bearer " + self.token
-        return r
-
-
 def flush_ida(self):
 
     print("Flushing test data from IDA...")
@@ -155,13 +147,13 @@ def flush_metax(self):
     else:
 
         url = "%s/rpc/v1/files/flush_project?project_identifier=%s" % (os.environ['METAX_URL'], os.environ['IDA_TEST_PROJECT'])
-        #print("POST %s %s" % (json.dumps(self.metax_user), url))
-        response = requests.post(url, auth=self.metax_user)
+        #print("POST %s %s" % (json.dumps(self.metax_user_auth), url))
+        response = requests.post(url, auth=self.metax_user_auth)
         self.assertTrue(response.status_code in [ 200, 204, 404 ],  "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
 
         url = "%s/rpc/v1/datasets/flush_user_data?metadata_provider_user=%s" % (os.environ['METAX_URL'], os.environ['IDA_TEST_USER'])
-        #print("POST %s %s" % (json.dumps(self.metax_user), url))
-        response = requests.post(url, auth=self.metax_user)
+        #print("POST %s %s" % (json.dumps(self.metax_user_auth), url))
+        response = requests.post(url, auth=self.metax_user_auth)
         self.assertTrue(response.status_code in [ 200, 204, 404 ],  "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
 
 
@@ -187,6 +179,24 @@ def upload_test_data(self):
     for count in [ 1, 2, 3, 4, 5 ]:
 
         pathname = "testdata/test0%d.dat" % count
+        localpath = "%s/tests/%s" % (os.environ['ROOT'], pathname)
+        url = "%s/remote.php/webdav/%s+/%s" % (os.environ['IDA_URL'], os.environ['IDA_TEST_PROJECT'], pathname)
+
+        with open(localpath, 'rb') as file:
+            response = requests.put(url, data=file, auth=self.ida_user_auth, verify=False)
+            self.assertEqual(response.status_code, 201,  "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
+
+    # Create /testdata/baseline folder in staging
+
+    url = "%s/remote.php/webdav/%s+/testdata/baseline" % (os.environ['IDA_URL'], os.environ['IDA_TEST_PROJECT'])
+    response = requests.request("MKCOL", url, auth=self.ida_user_auth, verify=False)
+    self.assertEqual(response.status_code, 201,  "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
+
+    # Upload /testdata/baseline/test0[1-5].dat to staging
+
+    for count in [ 1, 2, 3, 4, 5 ]:
+
+        pathname = "testdata/baseline/test0%d.dat" % count
         localpath = "%s/tests/%s" % (os.environ['ROOT'], pathname)
         url = "%s/remote.php/webdav/%s+/%s" % (os.environ['IDA_URL'], os.environ['IDA_TEST_PROJECT'], pathname)
 
@@ -268,15 +278,17 @@ def make_ida_offline(self):
         print("(service already in offline mode)")
         return True
     url = "%s/apps/ida/api/offline" % os.environ['IDA_URL']
-    response = requests.post(url, auth=self.ida_admin_auth, verify=False)
-    if response.status_code == 200:
+    response = requests.post(url, auth=self.ida_admin_auth, allow_redirects=False, verify=False)
+    # Sleep a bit in case IDA data directory is remotely mounted, to give the mount time to sync
+    time.sleep(5)
+    if response.status_code == 200 and os.path.exists(offline_sentinel_file):
         print("(service put into offline mode by API request)")
         return True
     # In case the /offline endpoint is not yet deployed, try to create a local file
     if response.status_code != 409:
         cmd = "sudo -u %s touch %s" % (os.environ["HTTPD_USER"], offline_sentinel_file)
         result = os.system(cmd)
-        if ((result == 0) and (os.path.exists(offline_sentinel_file))):
+        if result == 0 and os.path.exists(offline_sentinel_file):
             print("(service put into offline mode by local sentinel file creation)")
             return True
     return False
@@ -289,15 +301,17 @@ def make_ida_online(self):
         print("(service already in online mode)")
         return True
     url = "%s/apps/ida/api/offline" % os.environ['IDA_URL']
-    response = requests.delete(url, auth=self.ida_admin_auth, verify=False)
-    if response.status_code == 200:
+    response = requests.delete(url, auth=self.ida_admin_auth, allow_redirects=False, verify=False)
+    # Sleep a bit in case IDA data directory is remotely mounted, to give the mount time to sync
+    time.sleep(5)
+    if response.status_code == 200 and not os.path.exists(offline_sentinel_file):
         print("(service put into online mode by API request)")
         return True
     # In case the /offline endpoint is not yet deployed, try to delete any local file
     if response.status_code != 409:
         cmd = "sudo -u %s rm -f %s" % (os.environ["HTTPD_USER"], offline_sentinel_file)
         result = os.system(cmd)
-        if ((result == 0) and (not os.path.exists(offline_sentinel_file))):
+        if result == 0 and not os.path.exists(offline_sentinel_file):
             print("(service put into online mode by local sentinel file deletion)")
             return True
     return False

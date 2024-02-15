@@ -7,6 +7,7 @@
 import os
 import time
 import logging
+import requests
 import dateutil.parser
 from datetime import datetime
 from gunicorn import glogging    
@@ -18,6 +19,14 @@ time.tzset()
 
 LOG_ENTRY_FORMAT = '%(asctime)s (%(process)d) %(levelname)s %(message)s'
 TIMESTAMP_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
+
+
+class BearerAuth(requests.auth.AuthBase):
+    def __init__(self, token):
+        self.token = token
+    def __call__(self, r):
+        r.headers["authorization"] = "Bearer " + self.token
+        return r
 
 
 @after_setup_logger.connect
@@ -35,8 +44,10 @@ def normalize_logging(app = None):
     if app:
         loggers.append(app.logger)
     for logger in loggers:
+        #app.logger.debug(f"Logger: {logger}, Class: {type(logger)}")
         for handler in logger.handlers:
             handler.setFormatter(logging.Formatter(LOG_ENTRY_FORMAT, TIMESTAMP_FORMAT))
+            #app.logger.debug(f"Handler: {handler}, Class: {type(handler)}")
 
 
 def normalize_timestamp(timestamp):

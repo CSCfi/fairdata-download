@@ -17,7 +17,8 @@ from jwt import decode, encode, ExpiredSignatureError
 from jwt.exceptions import DecodeError
 from requests.exceptions import ConnectionError
 from ..services import task_service
-from ..services.cache import perform_housekeeping, get_datasets_dir, get_mock_notifications_dir
+from ..services.cache import perform_housekeeping, purge_ghost_files, cleanup_package_cache, print_statistics, \
+                             validate_package_cache, get_datasets_dir, get_mock_notifications_dir
 from ..services.db import get_download_record_by_token, get_request_scopes, get_task_id_for_package, \
                           create_download_record, create_request_scope, create_subscription_row, create_task_rows, get_package, \
                           finalize_download_record, extract_event, update_package_generation_timestamps, update_package_file_size
@@ -794,6 +795,9 @@ def download():
             project_identifier,
             ) + filepath
 
+        if not path.exists(filename):
+            abort(500, "The specified data file does not exist: /%s%s" % (project_identifier, filepath))
+
     else:
         try:
             task_service.check_if_package_can_be_downloaded(dataset, package)
@@ -811,6 +815,10 @@ def download():
             abort(409, err)
 
         filename = path.join(get_datasets_dir(), package)
+
+        if not path.exists(filename):
+            abort(500, "The specified dataset package file does not exist: %s" % package)
+
 
     def stream_response():
       download_id = create_download_record(auth_token, package or filepath)
@@ -836,7 +844,7 @@ def download():
 
 
 @download_api.route('/housekeep', methods=['POST'])
-def housekeep():
+def housekeep_endpoint():
     """
     Internally available end point for initiating all package cache housekeeping.
     """
@@ -851,6 +859,90 @@ def housekeep():
 
     try:
         status = perform_housekeeping()
+        return Response(status, mimetype='text/plain', status=200) 
+    except Exception as e:
+        return Response(str(e), mimetype='text/plain', status=500) 
+
+
+@download_api.route('/validate', methods=['POST'])
+def validate_endpoint():
+    """
+    Internally available end point for validating package cache.
+    """
+
+    current_app.logger.debug("POST /validate")
+
+    # Authenticate the trusted service making the request
+    try:
+        authenticate_trusted_service(current_app, request)
+    except PermissionError as err:
+        abort(401, str(err))
+
+    try:
+        status = validate_package_cache()
+        return Response(status, mimetype='text/plain', status=200) 
+    except Exception as e:
+        return Response(str(e), mimetype='text/plain', status=500) 
+
+
+@download_api.route('/purge', methods=['POST'])
+def purge_endpoint():
+    """
+    Internally available end point for purging ghost files from cache.
+    """
+
+    current_app.logger.debug("POST /purge")
+
+    # Authenticate the trusted service making the request
+    try:
+        authenticate_trusted_service(current_app, request)
+    except PermissionError as err:
+        abort(401, str(err))
+
+    try:
+        status = purge_ghost_files()
+        return Response(status, mimetype='text/plain', status=200) 
+    except Exception as e:
+        return Response(str(e), mimetype='text/plain', status=500) 
+
+
+@download_api.route('/cleanup', methods=['POST'])
+def cleanup_endpoint():
+    """
+    Internally available end point for cleaning up package cache.
+    """
+
+    current_app.logger.debug("POST /cleanup")
+
+    # Authenticate the trusted service making the request
+    try:
+        authenticate_trusted_service(current_app, request)
+    except PermissionError as err:
+        abort(401, str(err))
+
+    try:
+        status = cleanup_package_cache()
+        return Response(status, mimetype='text/plain', status=200) 
+    except Exception as e:
+        return Response(str(e), mimetype='text/plain', status=500) 
+
+
+@download_api.route('/stats', methods=['POST'])
+def stats_endpoint():
+    """
+    Internally available end point for getting package cache stats.
+    """
+
+    current_app.logger.debug("POST /stats")
+
+    # Authenticate the trusted service making the request
+    try:
+        authenticate_trusted_service(current_app, request)
+    except PermissionError as err:
+        abort(401, str(err))
+
+    try:
+        status = print_statistics()
         return Response(status, mimetype='text/plain', status=200) 
     except Exception as e:
         return Response(str(e), mimetype='text/plain', status=500) 
@@ -949,7 +1041,7 @@ def unauthorized(error):
 @download_api.errorhandler(404)
 def resource_not_found(error):
     """Error handler for HTTP 404."""
-    current_app.logger.error(error)
+    current_app.logger.debug(error) # Do not fill production logs with 404 "errors", only debug
     return jsonify(name=error.name, error=str(error.description)), 404
 
 
@@ -970,5 +1062,5 @@ def internal_server_error(error):
 @download_api.errorhandler(503)
 def service_not_available(error):
     """Error handler for HTTP 503."""
-    current_app.logger.error(error)
+    current_app.logger.debug(error) # Do not fill production logs with 503 "errors", only debug
     return jsonify(name=error.name, error=str(error.description)), 503

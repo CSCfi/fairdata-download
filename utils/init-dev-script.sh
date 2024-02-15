@@ -65,12 +65,14 @@ fi
 
 if [ "$DEBUG" = "true" ]; then
     echo "ENVIRONMENT:           $ENVIRONMENT"
-    echo "SETTINGS:              $DOWNLOAD_SETTINGS"
     echo "SCRIPT:                $SCRIPT"
     echo "ROOT:                  $ROOT"
     echo "UTILS:                 $UTILS"
     echo "HTTPD_USER:            $HTTPD_USER"
     echo "TRUSTED_SERVICE_TOKEN: $TRUSTED_SERVICE_TOKEN"
+    echo "DOWNLOAD_HOST:         $DOWNLOAD_HOST"
+    echo "DOWNLOAD_SETTINGS:     $DOWNLOAD_SETTINGS"
+    echo "DOWNLOAD_CACHE_DIR:    $DOWNLOAD_CACHE_DIR"
     echo "METAX_URL:             $METAX_URL"
     echo "METAX_VERSION:         $METAX_VERSION"
     echo "METAX_USER:            $METAX_USER"
@@ -83,7 +85,9 @@ fi
 
 export ROOT
 export HTTPD_USER
+export DOWNLOAD_HOST
 export DOWNLOAD_SETTINGS
+export DOWNLOAD_CACHE_DIR
 export TRUSTED_SERVICE_TOKEN
 export METAX_URL
 export METAX_VERSION

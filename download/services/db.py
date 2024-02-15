@@ -26,6 +26,9 @@ def get_db():
     init_schema = False
 
     if 'db' not in g:
+
+        current_app.logger.debug('Connecting to database %s' % (current_app.config['DATABASE_FILE'], ))
+
         if not os.path.isfile(current_app.config['DATABASE_FILE']):
             init_schema = True
 
@@ -35,9 +38,7 @@ def get_db():
         )
         g.db.row_factory = sqlite3.Row
 
-        current_app.logger.debug(
-            'Connected to database on %s' %
-            (current_app.config['DATABASE_FILE'], ))
+        current_app.logger.debug('Connected to database %s' % (current_app.config['DATABASE_FILE'], ))
 
     if init_schema:
         init_db()
@@ -388,16 +389,17 @@ def delete_package_rows(filenames):
     """
     Delete package rows for packages with the specified file names
     """
+
     db_conn = get_db()
     db_cursor = db_conn.cursor()
 
-    db_cursor.execute('DELETE FROM package WHERE filename IN (?)', (', '.join(filenames),))
+    for filename in filenames:
+        db_cursor.execute('DELETE FROM package WHERE filename = ?', (filename,))
+        current_app.logger.info("Deleted package row for filename %s" % filename)
 
     db_conn.commit()
 
-    current_app.logger.info(
-        "Deleted %s package rows"
-        % (len(filenames)))
+    current_app.logger.info("Deleted %s package rows" % len(filenames))
 
 
 def get_package(task_id):
@@ -584,6 +586,5 @@ def init_app(app):
 
     :param app: Flask application to hook the module into
     """
-    normalize_logging(app)
     app.teardown_appcontext(close_db)
     app.cli.add_command(db_cli)

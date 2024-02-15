@@ -128,5 +128,4 @@ def init_app(app):
 
     :param app: Flask application to hook module into.
     """
-    normalize_logging(app)
     app.cli.add_command(generator_cli)
