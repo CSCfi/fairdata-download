@@ -21,7 +21,6 @@
 
 import requests
 import unittest
-import time
 import os
 import sys
 import socket
@@ -273,7 +272,7 @@ class TestHousekeeping(unittest.TestCase):
         result = os.system(cmd)
         self.assertNotEqual(result, 0)
 
-        flush_download(self)
+        flush_cache(self)
 
         # --------------------------------------------------------------------------------
 
@@ -320,7 +319,7 @@ class TestHousekeeping(unittest.TestCase):
         response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id_1), auth=self.token_auth)
         self.assertEqual(response.status_code, 404, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
 
-        flush_download(self)
+        flush_cache(self)
 
         # --------------------------------------------------------------------------------
 
@@ -366,7 +365,7 @@ class TestHousekeeping(unittest.TestCase):
         response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id_1), auth=self.token_auth)
         self.assertEqual(response.status_code, 404, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
 
-        flush_download(self)
+        flush_cache(self)
 
         # --------------------------------------------------------------------------------
 
@@ -447,9 +446,6 @@ class TestHousekeeping(unittest.TestCase):
         cmd = "%s/cli/cache-cli housekeep >/dev/null 2>&1" % os.environ["ROOT"]
         result = os.system(cmd)
         self.assertEqual(result, 0)
-        #print("Run housekeeping to purge now-invalid packages for datasets 1 and 2")
-        #response = requests.post("https://%s:4431/housekeep" % self.hostname, auth=self.token_auth)
-        #self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
 
         print("Verify dataset 1 package file no longer exists in cache")
         cmd = "%s/utils/package-stats %s >/dev/null 2>&1" % (os.environ["ROOT"], package_1)
@@ -468,8 +464,6 @@ class TestHousekeeping(unittest.TestCase):
         print("Verify complete dataset 2 package is no longer listed with available packages for dataset")
         response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id_2), auth=self.token_auth)
         self.assertEqual(response.status_code, 404, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
-
-        flush_download(self)
 
         # --------------------------------------------------------------------------------
         # If all tests passed, record success, in which case tearDown will be done

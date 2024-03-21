@@ -28,10 +28,7 @@
     explicitly via a cron job, if that is later decided to be more optimal.
 """
 import os
-import sys
 import pendulum
-import logging
-import requests
 from dataclasses import asdict
 from typing import List
 from flask import current_app
@@ -50,11 +47,39 @@ def perform_housekeeping():
     current_app.logger.info(message)
     status = message
     message = purge_ghost_files()
-    status = status + "\n\n" + message
+    status = status + "\n" + message
     message = validate_package_cache()
-    status = status + "\n\n" + message
+    status = status + "\n" + message
     message = cleanup_package_cache()
-    status = status + "\n\n" + message
+    status = status + "\n" + message
+    return status
+
+
+def flush_cache():
+    """Flush all files from cache and update database records."""
+    message = "Flushing cache"
+    current_app.logger.info(message)
+    status = message
+    source_root = os.path.join(current_app.config['DOWNLOAD_CACHE_DIR'], 'datasets')
+    removed = []
+    for root, dirs, files in os.walk(source_root):
+        for name in files:
+            os.remove(os.path.join(root, name))
+            removed.append(name)
+    if len(removed) > 0:
+        message = f"Removed {len(removed)} package files"
+        current_app.logger.info(message)
+        status = status + "\n" + message
+        message = f"Removed file names: {removed}"
+        current_app.logger.info(message)
+        status = status + "\n" + message
+    else:
+        message = "No package files found"
+        current_app.logger.info(message)
+        status = status + "\n" + message
+    db.flush_cache_rows()
+    message = "Flushed cache and queue related database tables"
+    status = status + "\n" + message
     return status
 
 
@@ -361,36 +386,37 @@ cache_cli = AppGroup(
 @cache_cli.command("housekeep")
 def housekeep_command():
     """Execute cache housekeeping operation."""
-    response = requests.post("https://%s:4431/housekeep" % current_app.config['DOWNLOAD_HOST'], auth=BearerAuth(current_app.config['TRUSTED_SERVICE_TOKEN']))
-    print(response.content.decode(sys.stdout.encoding))
+    print(perform_housekeeping())
 
 
 @cache_cli.command("validate")
 def validate_command():
     """Execute cache validation operation."""
-    response = requests.post("https://%s:4431/validate" % current_app.config['DOWNLOAD_HOST'], auth=BearerAuth(current_app.config['TRUSTED_SERVICE_TOKEN']))
-    print(response.content.decode(sys.stdout.encoding))
+    print(validate_package_cache())
 
 
 @cache_cli.command("cleanup")
 def cleanup_command():
     """Execute cache housekeeping operation."""
-    response = requests.post("https://%s:4431/cleanup" % current_app.config['DOWNLOAD_HOST'], auth=BearerAuth(current_app.config['TRUSTED_SERVICE_TOKEN']))
-    print(response.content.decode(sys.stdout.encoding))
+    print(cleanup_package_cache())
+
+
+@cache_cli.command("flush")
+def flush_command():
+    """Execute cache flush operation."""
+    print(flush_cache())
 
 
 @cache_cli.command("purge")
 def purge_command():
     """Execute cache purge operation."""
-    response = requests.post("https://%s:4431/purge" % current_app.config['DOWNLOAD_HOST'], auth=BearerAuth(current_app.config['TRUSTED_SERVICE_TOKEN']))
-    print(response.content.decode(sys.stdout.encoding))
+    print(purge_ghost_files())
 
 
 @cache_cli.command("stats")
 def stats_command():
     """Print general cache volume usage statistics."""
-    response = requests.post("https://%s:4431/stats" % current_app.config['DOWNLOAD_HOST'], auth=BearerAuth(current_app.config['TRUSTED_SERVICE_TOKEN']))
-    print(response.content.decode(sys.stdout.encoding))
+    print(print_statistics())
 
 
 def init_app(app):

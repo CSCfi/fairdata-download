@@ -1,0 +1,3 @@
+# Initiate re-population of queue, one new task per dataset, once per minute
+# Waiting new tasks will only be queued if there are no pending tasks in queue
+* * * * * /usr/local/fd/fairdata-download/cli/mq-cli reload

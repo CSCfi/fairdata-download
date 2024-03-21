@@ -6,6 +6,8 @@
 """
 import os
 import time
+import dateutil.parser
+from datetime import datetime
 from requests.exceptions import ConnectionError
 from .. import utils
 from . import db, metax, cache
@@ -52,7 +54,7 @@ class PackageOutdated(Exception):
 def get_active_tasks(dataset_id):
     """Get all of the available package generation tasks for a dataset.
 
-    :param dataset_id: ID of the dataset
+    :param dataset_id: ID of the dataset; if none specified, gets active tasks for all datasets
     :raises ConnectionError: Application is unable to connect to Metax API
     :raises MissingFieldsInResponse: Some required fields were not found in Metax API
                                      response
@@ -60,20 +62,67 @@ def get_active_tasks(dataset_id):
     :raises NoMatchingFilesFound: No dataset files matching the request scope were found
                                   in Metax API
     :raises NoActiveTasksFound: No available package generation tasks were found for the
-                                given dataset.
+                                given dataset, or for any dataset if no dataset specified.
     """
-    try:
-        dataset_modified = metax.get_dataset_modified_from_metax(dataset_id)
-    except DatasetNotFound as err:
-        raise
-    except ConnectionError:
-        raise
-    except MissingFieldsInResponse:
-        raise
-    except UnexpectedStatusCode:
-        raise
+
+    # If a dataset id is specified, we will get the dataset modification timestamp from
+    # metax and use that in the query when retrieving active tasks for the dataset, else
+    # we will need to iterate over the returned tasks and retrieve the dataset modification
+    # timestamp and filter out those which were initiated after the dataset was modified.
+
+    dataset_modified = None
+
+    if dataset_id:
+        try:
+            dataset_modified = metax.get_dataset_modified_from_metax(dataset_id)
+        except DatasetNotFound as err:
+            raise
+        except ConnectionError:
+            raise
+        except MissingFieldsInResponse:
+            raise
+        except UnexpectedStatusCode:
+            raise
+
+    # >>>
+    # Temp hack - if dataset specified, get tasks for all datasets, filtering by specified dataset afterwards (results should be equivalent)
+    temp_dataset_id = dataset_id
+    dataset_id = None
+    dataset_modified = None
+    # <<<
 
     task_rows = db.get_task_rows(dataset_id, dataset_modified)
+
+    # When no dataset specified, filter out tasks initiated earlier than last dataset modification timestamp
+    # (in this special case, if a dataset is not found in Metax, its tasks are excluded, but no exception is raised)
+    if not dataset_id:
+        task_rows_ok = []
+        dataset_modified_timestamps = {}
+        for row in task_rows:
+            try:
+                dataset_id = row['dataset_id']
+                dataset_modified = dataset_modified_timestamps.get(dataset_id)
+                if not dataset_modified:
+                    dataset_modified = metax.get_dataset_modified_from_metax(dataset_id)
+                    dataset_modified = utils.normalize_timestamp(dataset_modified)
+                    dataset_modified_timestamps[dataset_id] = dataset_modified
+                if utils.normalize_timestamp(row['initiated']) > dataset_modified:
+                    task_rows_ok.append(row)
+            except DatasetNotFound as err:
+                pass
+        dataset_id = None
+        task_rows = task_rows_ok
+
+    # >>>
+    # Temp hack - restrict results to any specified dataset
+    dataset_id = temp_dataset_id
+    if dataset_id:
+        temp_task_rows = []
+        for row in task_rows:
+            if row['dataset_id'] == dataset_id:
+                temp_task_rows.append(row)
+        task_rows = temp_task_rows
+    # <<<
 
     if len(task_rows) == 0:
         raise NoActiveTasksFound(dataset_id)

@@ -4,15 +4,19 @@
 
     Message queue module for Fairdata Download Service.
 """
-import os
-import time
+import json
 import click
 from flask import current_app, g
 from flask.cli import AppGroup
 from pika import BlockingConnection, ConnectionParameters, PlainCredentials
 from pika.exceptions import AMQPConnectionError
 from socket import gaierror
-from ..utils import normalize_logging
+from .db import get_task_rows_for_status, get_generate_scope_filepaths, update_task_id, update_task_status, get_request_scopes
+from ..utils import normalize_timestamp
+import threading
+
+
+queue_lock = threading.Lock()
 
 
 class UnableToConnectToMQ(Exception):
@@ -93,6 +97,63 @@ def init_mq():
         (current_app.config['MQ_HOST'], ))
 
 
+def reload_queue():
+    from ..tasks import generate_task
+    global queue_lock
+    with queue_lock:
+        task_rows = get_task_rows_for_status('PENDING')
+        if len(task_rows) > 0:
+            return
+        task_rows = get_task_rows_for_status('NEW')
+        if len(task_rows) == 0:
+            return
+        datasets = []
+        added_tasks = []
+        for task_row in task_rows:
+            dataset_id = task_row['dataset_id']
+            if dataset_id not in datasets:
+                datasets.append(dataset_id)
+                task_id = task_row['task_id']
+                project_identifier = task_id.split()[0]
+                generate_scope = get_generate_scope_filepaths(task_id)
+                task = generate_task.delay(dataset_id, project_identifier, list(generate_scope))
+                update_task_id(task_id, task.id)
+                update_task_status(task.id, 'PENDING')
+                added_tasks.append({
+                    "id": task_row['id'],
+                    "task_id": task.id,
+                    "dataset_id": task_row['dataset_id'],
+                    "is_partial": task_row['is_partial'],
+                    "status": "PENDING",
+                    "initiated": task_row['initiated'],
+                    "date_done": task_row['date_done'],
+                    "retries": task_row['retries']
+                })
+        return(added_tasks)
+
+
+def task_rows_to_json(task_rows):
+    tasks = []
+    for task_row in task_rows:
+        task_scope = set()
+        for scope in get_request_scopes(task_row['task_id']):
+            for path in scope:
+                task_scope.add(path)
+        task_scope = sorted(list(task_scope))
+        tasks.append({
+            "id": task_row['id'],
+            "task_id": task_row['task_id'],
+            "dataset": task_row['dataset_id'],
+            "scope": task_scope,
+            "is_partial": (task_row['is_partial'] == 1),
+            "status": task_row['status'],
+            "initiated": normalize_timestamp(task_row['initiated']) if task_row['initiated'] is not None else None,
+            "completed": normalize_timestamp(task_row['date_done']) if task_row['date_done'] is not None else None,
+            "retries": task_row['retries']
+        })
+    return json.dumps(tasks, indent=4)
+
+
 mq_cli = AppGroup('mq', help='Run operations against message queue')
 
 
@@ -103,6 +164,44 @@ def init_mq_command():
                       'want to continue?')):
         init_mq()
         click.echo('Initialized the message queue.')
+
+
+@mq_cli.command('new')
+def status_new_mq_command():
+    print(task_rows_to_json(get_task_rows_for_status('NEW')))
+
+
+@mq_cli.command('pending')
+def status_pending_mq_command():
+    print(task_rows_to_json(get_task_rows_for_status('PENDING')))
+
+
+@mq_cli.command('success')
+def status_success_mq_command():
+    print(task_rows_to_json(get_task_rows_for_status('SUCCESS')))
+
+
+@mq_cli.command('retry')
+def status_retry_mq_command():
+    print(task_rows_to_json(get_task_rows_for_status('RETRY')))
+
+
+@mq_cli.command('failed')
+def status_failed_mq_command():
+    print(task_rows_to_json(get_task_rows_for_status('FAILED')))
+
+
+@mq_cli.command('reload')
+def reload_mq_command():
+    task_rows = get_task_rows_for_status('PENDING')
+    if len(task_rows) > 0:
+        print("Pending tasks exist. No tasks added to queue.")
+    else:
+        task_rows = get_task_rows_for_status('NEW')
+        if len(task_rows) == 0:
+            print("No new tasks exist. No tasks added to queue.")
+        else:
+            print(task_rows_to_json(reload_queue()))
 
 
 def init_app(app):

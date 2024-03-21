@@ -6,6 +6,7 @@ class RequestsQuerySchema(Schema):
 class RequestsPostData(Schema):
     dataset = fields.Str(required=True)
     scope = fields.List(fields.Str())
+    testing = fields.Boolean()
 
 class SubscribePostData(Schema):
     dataset = fields.Str(required=True)

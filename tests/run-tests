@@ -13,12 +13,15 @@ source $ROOT/venv/bin/activate
 
 cd $ROOT
 
-echo "UNIT TESTS:"
+if [ "$1" != "--skip-unit-tests" ]; then
 
-coverage run -m pytest -p no:warnings
+    echo "UNIT TESTS:"
 
-if [ $? -ne 0 ]; then
-    exit 1
+    coverage run -m pytest -p no:warnings
+
+    if [ $? -ne 0 ]; then
+        exit 1
+    fi
 fi
 
 echo "BEHAVIORAL TESTS:"

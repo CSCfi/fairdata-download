@@ -24,6 +24,7 @@ import sys
 import time
 import json
 import requests
+import subprocess
 
 DATASET_TEMPLATE_V3 = {
     "pid_type": "URN",
@@ -158,10 +159,62 @@ def flush_metax(self):
 
 
 def flush_download(self):
-    print("Flushing test data from Download Service...")
+    print("Flushing all data from Download Service...")
     cmd = "%s/utils/flush-all" % os.environ['ROOT']
     result = os.system(cmd)
     self.assertEqual(result, 0)
+
+
+def flush_cache(self):
+    print("Flushing cache...")
+    cmd = "%s/cli/cache-cli flush >/dev/null" % os.environ['ROOT']
+    result = os.system(cmd)
+    self.assertEqual(result, 0)
+
+
+def reload_queue(self):
+    print("Reloading queue...")
+    cmd = "%s/cli/mq-cli reload" % os.environ['ROOT']
+    output = subprocess.check_output(cmd, shell=True)
+    try:
+        return json.loads(output)
+    except:
+        return []
+
+
+def get_new_tasks(self):
+    print("Retrieving new tasks...")
+    cmd = "%s/cli/mq-cli new" % os.environ['ROOT']
+    output = subprocess.check_output(cmd, shell=True)
+    return json.loads(output)
+
+
+def get_pending_tasks(self):
+    print("Retrieving pending tasks...")
+    cmd = "%s/cli/mq-cli pending" % os.environ['ROOT']
+    output = subprocess.check_output(cmd, shell=True)
+    return json.loads(output)
+
+
+def get_success_tasks(self):
+    print("Retrieving success tasks...")
+    cmd = "%s/cli/mq-cli success" % os.environ['ROOT']
+    output = subprocess.check_output(cmd, shell=True)
+    return json.loads(output)
+
+
+def get_retry_tasks(self):
+    print("Retrieving retry tasks...")
+    cmd = "%s/cli/mq-cli retry" % os.environ['ROOT']
+    output = subprocess.check_output(cmd, shell=True)
+    return json.loads(output)
+
+
+def get_failed_tasks(self):
+    print("Retrieving failed tasks...")
+    cmd = "%s/cli/mq-cli failed" % os.environ['ROOT']
+    output = subprocess.check_output(cmd, shell=True)
+    return json.loads(output)
 
 
 def upload_test_data(self):
@@ -216,12 +269,12 @@ def wait_for_pending_requests(self, dataset_pid):
         if response.status_code == 200:
             response_json = response.json()
             status = response_json.get('status')
-            pending = status != None and status not in [ 'SUCCESS', 'FAILED' ]
+            pending = status in [ 'PENDING', 'RETRY' ]
             if not pending:
                 partial = response_json.get('partial', [])
                 for req in partial:
                     if not pending:
-                        pending = req.get('status') not in [ 'SUCCESS', 'FAILED' ]
+                        pending = req.get('status') in [ 'PENDING', 'RETRY' ]
             if pending:
                 looped = True
                 print(".", end='', flush=True)

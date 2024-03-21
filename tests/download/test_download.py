@@ -25,7 +25,6 @@ import time
 import os
 import sys
 import socket
-import json
 from download.utils import BearerAuth
 from tests.common.utils import *
 
@@ -44,8 +43,8 @@ class TestDownload(unittest.TestCase):
         # keep track of success, for reference in tearDown
         self.success = False
 
-        # timeout when waiting for actions to complete
-        self.timeout = 600 # 10 minutes
+        # timeout in seconds when waiting for actions to complete
+        self.timeout = 120
 
         self.hostname = os.environ.get('DOWNLOAD_HOST', socket.getfqdn())
 
@@ -143,22 +142,57 @@ class TestDownload(unittest.TestCase):
         self.assertEqual(response.status_code, 201, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         dataset = response.json()
         if int(os.environ['METAX_VERSION']) >= 3:
-            dataset_id = dataset.get('id')
+            dataset_id_1 = dataset.get('id')
         else:
-            dataset_id = dataset.get('identifier')
-        self.assertIsNotNone(dataset_id)
+            dataset_id_1 = dataset.get('identifier')
+        self.assertIsNotNone(dataset_id_1)
+
+        print("Creating dataset containing all files in scope of frozen baseline/ subfolder")
+        if int(os.environ['METAX_VERSION']) >= 3:
+            dataset_data = DATASET_TEMPLATE_V3
+            dataset_data['metadata_owner']['user'] = self.ida_user
+            dataset_data['title'] = DATASET_TITLES[1]
+            dataset_data['fileset'] = {
+                "storage_service": "ida",
+                "csc_project": self.ida_project,
+                "directory_actions": [
+                    {
+                        "action": "add",
+                        "pathname": "/testdata/baseline/"
+                    }
+                ]
+            }
+            response = requests.post("%s/datasets" % os.environ['METAX_URL'], headers=self.metax_headers, json=dataset_data)
+        else:
+            files_2 = []
+            for file in files:
+                if file["pathname"].startswith("/testdata/baseline/"):
+                    files_2.append(file)
+            dataset_data = DATASET_TEMPLATE_V1
+            dataset_data['metadata_provider_user'] = self.ida_user
+            dataset_data['research_dataset']['title'] = DATASET_TITLES[1]
+            dataset_data['research_dataset']['files'] = build_dataset_files(self, files_2)
+            url = "%s/rest/v1/datasets" % os.environ['METAX_URL']
+            response = requests.post(url, json=dataset_data, auth=self.metax_user_auth)
+        self.assertEqual(response.status_code, 201, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
+        dataset = response.json()
+        if int(os.environ['METAX_VERSION']) >= 3:
+            dataset_id_2 = dataset.get('id')
+        else:
+            dataset_id_2 = dataset.get('identifier')
+        self.assertIsNotNone(dataset_id_2)
 
         # --------------------------------------------------------------------------------
 
         print("Verify that no active package generation requests exist for dataset")
-        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id), auth=self.token_auth)
+        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id_1), auth=self.token_auth)
         self.assertEqual(response.status_code, 404, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
 
         print("Authorize individual dataset file download")
         file = files[0]
         filename = file.get('pathname')
         self.assertIsNotNone(filename)
-        data = { "dataset": dataset_id, "file": filename }
+        data = { "dataset": dataset_id_1, "file": filename }
         url = "https://%s:4431/authorize" % self.hostname
         response = requests.post("https://%s:4431/authorize" % self.hostname, json=data, auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
@@ -174,17 +208,42 @@ class TestDownload(unittest.TestCase):
         self.assertEqual(response.status_code, 401, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
 
         print("Request generation of complete dataset package")
-        data = { "dataset": dataset_id }
+        data = { "dataset": dataset_id_1, "testing": True }
         response = requests.post("https://%s:4431/requests" % self.hostname, json=data, auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         response_json = response.json()
         self.assertIsNotNone(response_json)
-        self.assertEqual(response_json.get('dataset'), dataset_id, response.content.decode(sys.stdout.encoding))
+        self.assertEqual(response_json.get('dataset'), dataset_id_1, response.content.decode(sys.stdout.encoding))
 
-        wait_for_pending_requests(self, dataset_id)
+        tasks = get_new_tasks(self)
+        self.assertEqual(len(tasks), 1)
+        task = tasks[0]
+        id = task["id"]
+        task_id = task["task_id"]
+        self.assertEqual(task["dataset"], dataset_id_1)
+        self.assertEqual(task["status"], "NEW")
+        self.assertEqual(len(task["scope"]), 0)
+        self.assertTrue(task_id.startswith("fd_test_download_project "))
+
+        tasks = get_pending_tasks(self)
+        self.assertEqual(len(tasks), 0)
+
+        tasks = reload_queue(self)
+        self.assertEqual(len(tasks), 1)
+        task = tasks[0]
+        self.assertEqual(task["id"], id)
+        self.assertNotEqual(task["task_id"], task_id)
+
+        tasks = get_new_tasks(self)
+        self.assertEqual(len(tasks), 0)
+
+        wait_for_pending_requests(self, dataset_id_1)
+
+        tasks = get_pending_tasks(self)
+        self.assertEqual(len(tasks), 0)
 
         print("Verify complete dataset package is reported in package listing")
-        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id), auth=self.token_auth)
+        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id_1), auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         response_json = response.json()
         self.assertEqual(response_json.get('status'), 'SUCCESS')
@@ -197,7 +256,7 @@ class TestDownload(unittest.TestCase):
         self.assertEqual(result, 0)
 
         print("Authorize complete dataset package download")
-        data = { "dataset": dataset_id, "package": package }
+        data = { "dataset": dataset_id_1, "package": package }
         response = requests.post("https://%s:4431/authorize" % self.hostname, json=data, auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         token = response.json().get('token')
@@ -208,17 +267,46 @@ class TestDownload(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
 
         print("Request generation of a partial dataset package")
-        data = { "dataset": dataset_id, "scope": [ "/testdata/test01.dat", "/testdata/test03.dat", "/testdata/test05.dat" ] }
+        data = { "dataset": dataset_id_1, "scope": [ "/testdata/test01.dat", "/testdata/test03.dat", "/testdata/test05.dat" ], "testing": True }
         response = requests.post("https://%s:4431/requests" % self.hostname, json=data, auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         response_json = response.json()
         self.assertIsNotNone(response_json)
-        self.assertEqual(response_json.get('dataset'), dataset_id, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
+        self.assertEqual(response_json.get('dataset'), dataset_id_1, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
 
-        wait_for_pending_requests(self, dataset_id)
+        tasks = get_new_tasks(self)
+        self.assertEqual(len(tasks), 1)
+        task = tasks[0]
+        id = task["id"]
+        task_id = task["task_id"]
+        scope = task["scope"]
+        self.assertEqual(task["dataset"], dataset_id_1)
+        self.assertEqual(task["status"], "NEW")
+        self.assertEqual(len(scope), 3)
+        self.assertTrue(task_id.startswith("fd_test_download_project "))
+        self.assertTrue("/testdata/test01.dat" in scope)
+        self.assertTrue("/testdata/test03.dat" in scope)
+        self.assertTrue("/testdata/test05.dat" in scope)
+
+        tasks = get_pending_tasks(self)
+        self.assertEqual(len(tasks), 0)
+
+        tasks = reload_queue(self)
+        self.assertEqual(len(tasks), 1)
+        task = tasks[0]
+        self.assertEqual(task["id"], id)
+        self.assertNotEqual(task["task_id"], task_id)
+
+        tasks = get_new_tasks(self)
+        self.assertEqual(len(tasks), 0)
+
+        wait_for_pending_requests(self, dataset_id_1)
+
+        tasks = get_pending_tasks(self)
+        self.assertEqual(len(tasks), 0)
 
         print("Verify partial dataset package is reported in package listing")
-        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id), auth=self.token_auth)
+        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id_1), auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         response_json = response.json()
         partial = response_json.get('partial')
@@ -240,7 +328,7 @@ class TestDownload(unittest.TestCase):
         self.assertEqual(result, 0)
 
         print("Authorize partial dataset package download")
-        data = { "dataset": dataset_id, "package": package }
+        data = { "dataset": dataset_id_1, "package": package }
         response = requests.post("https://%s:4431/authorize" % self.hostname, json=data, auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         token = response.json().get('token')
@@ -256,7 +344,7 @@ class TestDownload(unittest.TestCase):
             return
 
         print("Authorize individual dataset file download")
-        data = { "dataset": dataset_id, "file": filename }
+        data = { "dataset": dataset_id_1, "file": filename }
         response = requests.post("https://%s:4431/authorize" % self.hostname, json=data, auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         token = response.json().get('token')
@@ -267,7 +355,7 @@ class TestDownload(unittest.TestCase):
         self.assertEqual(response.status_code, 503, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
 
         print("Authorize existing dataset package download")
-        data = { "dataset": dataset_id, "package": package }
+        data = { "dataset": dataset_id_1, "package": package }
         response = requests.post("https://%s:4431/authorize" % self.hostname, json=data, auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         token = response.json().get('token')
@@ -278,46 +366,98 @@ class TestDownload(unittest.TestCase):
         #self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         self.assertEqual(response.status_code, 200, response.status_code)
 
-        flush_download(self)
+        # ---
+
+        flush_cache(self)
+
+        tasks = get_new_tasks(self)
+        self.assertIsNotNone(tasks)
+        self.assertTrue(isinstance(tasks, list))
+        self.assertEqual(len(tasks), 0)
+
+        tasks = get_pending_tasks(self)
+        self.assertIsNotNone(tasks)
+        self.assertTrue(isinstance(tasks, list))
+        self.assertEqual(len(tasks), 0)
+
+        tasks = get_success_tasks(self)
+        self.assertIsNotNone(tasks)
+        self.assertTrue(isinstance(tasks, list))
+        self.assertEqual(len(tasks), 0)
+
+        tasks = get_failed_tasks(self)
+        self.assertIsNotNone(tasks)
+        self.assertTrue(isinstance(tasks, list))
+        self.assertEqual(len(tasks), 0)
+
+        tasks = get_retry_tasks(self)
+        self.assertIsNotNone(tasks)
+        self.assertTrue(isinstance(tasks, list))
+        self.assertEqual(len(tasks), 0)
 
         print("Request generation of complete dataset package")
-        data = { "dataset": dataset_id }
+        data = { "dataset": dataset_id_1, "testing": True }
         response = requests.post("https://%s:4431/requests" % self.hostname, json=data, auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         response_json = response.json()
         self.assertIsNotNone(response_json)
-        self.assertEqual(response_json.get('dataset'), dataset_id, response.content.decode(sys.stdout.encoding))
+        self.assertEqual(response_json.get('dataset'), dataset_id_1, response.content.decode(sys.stdout.encoding))
 
         print("Verify that package generation request is pending")
-        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id), auth=self.token_auth)
+        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id_1), auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         response_json = response.json()
-        self.assertTrue(response_json.get('status') in ['STARTED', 'RETRY', 'PENDING'], response.content.decode(sys.stdout.encoding))
+        self.assertTrue(response_json.get('status') in ['STARTED', 'RETRY', 'PENDING', 'NEW'], response.content.decode(sys.stdout.encoding))
 
         print("Subscribe to notification of generation of dataset package")
-        data = { "dataset": dataset_id, "subscriptionData": "abcdef", "notifyURL": "https://%s:4431/mock_notify" % socket.gethostname() }
+        data = { "dataset": dataset_id_1, "subscriptionData": "abcdef", "notifyURL": "https://%s:4431/mock_notify" % socket.gethostname() }
         notification_file = "%s/mock_notifications/abcdef" % os.environ['DOWNLOAD_CACHE_DIR']
         response = requests.post("https://%s:4431/subscribe" % self.hostname, json=data, auth=self.token_auth)
         self.assertEqual(response.status_code, 201, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         response_json = response.json()
         self.assertIsNotNone(response_json)
-        self.assertEqual(response_json.get('dataset'), dataset_id, response.content.decode(sys.stdout.encoding))
+        self.assertEqual(response_json.get('dataset'), dataset_id_1, response.content.decode(sys.stdout.encoding))
 
         print("(sleeping...)")
         time.sleep(5)
 
         print("Verify that package generation request is still pending")
-        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id), auth=self.token_auth)
+        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id_1), auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         response_json = response.json()
-        self.assertTrue(response_json.get('status') in ['STARTED', 'RETRY', 'PENDING'], response.content.decode(sys.stdout.encoding))
+        self.assertTrue(response_json.get('status') in ['STARTED', 'RETRY', 'PENDING', 'NEW'], response.content.decode(sys.stdout.encoding))
 
         self.assertTrue(make_ida_online(self))
 
-        wait_for_pending_requests(self, dataset_id)
+        tasks = get_new_tasks(self)
+        self.assertEqual(len(tasks), 1)
+        task = tasks[0]
+        id = task["id"]
+        task_id = task["task_id"]
+        self.assertEqual(task["dataset"], dataset_id_1)
+        self.assertEqual(task["status"], "NEW")
+        self.assertEqual(len(task["scope"]), 0)
+        self.assertTrue(task_id.startswith("fd_test_download_project "))
+
+        tasks = get_pending_tasks(self)
+        self.assertEqual(len(tasks), 0)
+
+        tasks = reload_queue(self)
+        self.assertEqual(len(tasks), 1)
+        task = tasks[0]
+        self.assertEqual(task["id"], id)
+        self.assertNotEqual(task["task_id"], task_id)
+
+        tasks = get_new_tasks(self)
+        self.assertEqual(len(tasks), 0)
+
+        wait_for_pending_requests(self, dataset_id_1)
+
+        tasks = get_pending_tasks(self)
+        self.assertEqual(len(tasks), 0)
 
         print("Verify complete dataset package is reported in package listing")
-        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id), auth=self.token_auth)
+        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id_1), auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         response_json = response.json()
         self.assertEqual(response_json.get('status'), 'SUCCESS')
@@ -334,7 +474,7 @@ class TestDownload(unittest.TestCase):
 
         print("Authorize complete dataset package download")
         package = response_json.get('package')
-        data = { "dataset": dataset_id, "package": package }
+        data = { "dataset": dataset_id_1, "package": package }
         response = requests.post("https://%s:4431/authorize" % self.hostname, json=data, auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         token = response.json().get('token')
@@ -345,7 +485,7 @@ class TestDownload(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
 
         print("Authorize individual dataset file download")
-        data = { "dataset": dataset_id, "file": filename }
+        data = { "dataset": dataset_id_1, "file": filename }
         response = requests.post("https://%s:4431/authorize" % self.hostname, json=data, auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         token = response.json().get('token')
@@ -354,6 +494,237 @@ class TestDownload(unittest.TestCase):
         print("Download individual dataset file using authorization token")
         response = requests.get("https://%s:4431/download?token=%s" % (self.hostname, token), auth=self.token_auth)
         self.assertEqual(response.status_code, 200)
+
+        # ---
+
+        flush_cache(self)
+
+        tasks = get_new_tasks(self)
+        self.assertIsNotNone(tasks)
+        self.assertTrue(isinstance(tasks, list))
+        self.assertEqual(len(tasks), 0)
+
+        tasks = get_pending_tasks(self)
+        self.assertIsNotNone(tasks)
+        self.assertTrue(isinstance(tasks, list))
+        self.assertEqual(len(tasks), 0)
+
+        tasks = get_success_tasks(self)
+        self.assertIsNotNone(tasks)
+        self.assertTrue(isinstance(tasks, list))
+        self.assertEqual(len(tasks), 0)
+
+        tasks = get_failed_tasks(self)
+        self.assertIsNotNone(tasks)
+        self.assertTrue(isinstance(tasks, list))
+        self.assertEqual(len(tasks), 0)
+
+        tasks = get_retry_tasks(self)
+        self.assertIsNotNone(tasks)
+        self.assertTrue(isinstance(tasks, list))
+        self.assertEqual(len(tasks), 0)
+
+        print("Request generation of multiple dataset packages for multiple datasets")
+
+        data = { "dataset": dataset_id_1, "testing": True }
+        response = requests.post("https://%s:4431/requests" % self.hostname, json=data, auth=self.token_auth)
+        self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
+        #print(json.dumps(response.json(), indent=4))
+
+        data = { "dataset": dataset_id_1, "scope": [ "/testdata/test01.dat" ], "testing": True }
+        response = requests.post("https://%s:4431/requests" % self.hostname, json=data, auth=self.token_auth)
+        self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
+        #print(json.dumps(response.json(), indent=4))
+
+        data = { "dataset": dataset_id_1, "scope": [ "/testdata/test03.dat" ], "testing": True }
+        response = requests.post("https://%s:4431/requests" % self.hostname, json=data, auth=self.token_auth)
+        self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
+        #print(json.dumps(response.json(), indent=4))
+
+        data = { "dataset": dataset_id_1, "scope": [ "/testdata/test05.dat" ], "testing": True }
+        response = requests.post("https://%s:4431/requests" % self.hostname, json=data, auth=self.token_auth)
+        self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
+        #print(json.dumps(response.json(), indent=4))
+
+        data = { "dataset": dataset_id_2, "testing": True }
+        response = requests.post("https://%s:4431/requests" % self.hostname, json=data, auth=self.token_auth)
+        self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
+        #print(json.dumps(response.json(), indent=4))
+
+        data = { "dataset": dataset_id_2, "scope": [ "/testdata/baseline/test01.dat" ], "testing": True }
+        response = requests.post("https://%s:4431/requests" % self.hostname, json=data, auth=self.token_auth)
+        self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
+        #print(json.dumps(response.json(), indent=4))
+
+        data = { "dataset": dataset_id_2, "scope": [ "/testdata/baseline/test03.dat" ], "testing": True }
+        response = requests.post("https://%s:4431/requests" % self.hostname, json=data, auth=self.token_auth)
+        self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
+        #print(json.dumps(response.json(), indent=4))
+
+        data = { "dataset": dataset_id_2, "scope": [ "/testdata/baseline/test05.dat" ], "testing": True }
+        response = requests.post("https://%s:4431/requests" % self.hostname, json=data, auth=self.token_auth)
+        self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
+        #print(json.dumps(response.json(), indent=4))
+
+        tasks = get_new_tasks(self)
+        #print(json.dumps(tasks, indent=4))
+        self.assertEqual(len(tasks), 8)
+        id_1_1 = tasks[0]["id"]
+        task_id_1_1 = tasks[0]["task_id"]
+        self.assertEqual(tasks[0]["dataset"], dataset_id_1)
+        self.assertEqual(len(tasks[0]["scope"]), 0)
+        id_1_2 = tasks[1]["id"]
+        task_id_1_2 = tasks[1]["task_id"]
+        self.assertEqual(tasks[1]["dataset"], dataset_id_1)
+        self.assertEqual(len(tasks[1]["scope"]), 1)
+        self.assertEqual(tasks[1]["scope"][0], "/testdata/test01.dat")
+        id_1_3 = tasks[2]["id"]
+        task_id_1_3 = tasks[2]["task_id"]
+        self.assertEqual(tasks[2]["dataset"], dataset_id_1)
+        self.assertEqual(len(tasks[2]["scope"]), 1)
+        self.assertEqual(tasks[2]["scope"][0], "/testdata/test03.dat")
+        id_1_4 = tasks[3]["id"]
+        task_id_1_4 = tasks[3]["task_id"]
+        self.assertEqual(tasks[3]["dataset"], dataset_id_1)
+        self.assertEqual(len(tasks[3]["scope"]), 1)
+        self.assertEqual(tasks[3]["scope"][0], "/testdata/test05.dat")
+        id_2_1 = tasks[4]["id"]
+        task_id_2_1 = tasks[4]["task_id"]
+        self.assertEqual(tasks[4]["dataset"], dataset_id_2)
+        self.assertEqual(len(tasks[4]["scope"]), 0)
+        id_2_2 = tasks[5]["id"]
+        task_id_2_2 = tasks[5]["task_id"]
+        self.assertEqual(tasks[5]["dataset"], dataset_id_2)
+        self.assertEqual(len(tasks[5]["scope"]), 1)
+        self.assertEqual(tasks[5]["scope"][0], "/testdata/baseline/test01.dat")
+        id_2_3 = tasks[6]["id"]
+        task_id_2_3 = tasks[6]["task_id"]
+        self.assertEqual(tasks[6]["dataset"], dataset_id_2)
+        self.assertEqual(len(tasks[6]["scope"]), 1)
+        self.assertEqual(tasks[6]["scope"][0], "/testdata/baseline/test03.dat")
+        id_2_4 = tasks[7]["id"]
+        task_id_2_4 = tasks[7]["task_id"]
+        self.assertEqual(tasks[7]["dataset"], dataset_id_2)
+        self.assertEqual(len(tasks[7]["scope"]), 1)
+        self.assertEqual(tasks[7]["scope"][0], "/testdata/baseline/test05.dat")
+
+        tasks = get_pending_tasks(self)
+        self.assertEqual(len(tasks), 0)
+
+        print("Re-populate generation queue and verify correct processing order of pending generation tasks - round 1")
+
+        tasks = reload_queue(self)
+        #print(json.dumps(tasks, indent=4))
+        self.assertEqual(len(tasks), 2)
+
+        self.assertEqual(tasks[0]["dataset"], dataset_id_1)
+        self.assertEqual(tasks[0]["id"], id_1_1)
+        self.assertEqual(tasks[0]["status"], "PENDING")
+        self.assertNotEqual(tasks[0]["task_id"], task_id_1_1)
+        self.assertEqual(len(tasks[0]["scope"]), 0)
+        self.assertEqual(tasks[1]["dataset"], dataset_id_2)
+        self.assertEqual(tasks[1]["id"], id_2_1)
+        self.assertEqual(tasks[1]["status"], "PENDING")
+        self.assertNotEqual(tasks[1]["task_id"], task_id_2_1)
+        self.assertEqual(len(tasks[1]["scope"]), 0)
+
+        wait_for_pending_requests(self, dataset_id_1)
+        wait_for_pending_requests(self, dataset_id_2)
+
+        tasks = get_pending_tasks(self)
+        self.assertEqual(len(tasks), 0)
+
+        tasks = get_new_tasks(self)
+        self.assertEqual(len(tasks), 6)
+
+        print("Re-populate generation queue and verify correct processing order of pending generation tasks - round 2")
+
+        tasks = reload_queue(self)
+        #print(json.dumps(tasks, indent=4))
+        self.assertEqual(len(tasks), 2)
+
+        self.assertEqual(tasks[0]["dataset"], dataset_id_1)
+        self.assertEqual(tasks[0]["id"], id_1_2)
+        self.assertEqual(tasks[0]["status"], "PENDING")
+        self.assertNotEqual(tasks[0]["task_id"], task_id_1_2)
+        self.assertEqual(len(tasks[0]["scope"]), 1)
+        self.assertEqual(tasks[0]["scope"][0], "/testdata/test01.dat")
+        self.assertEqual(tasks[1]["dataset"], dataset_id_2)
+        self.assertEqual(tasks[1]["id"], id_2_2)
+        self.assertEqual(tasks[1]["status"], "PENDING")
+        self.assertNotEqual(tasks[1]["task_id"], task_id_2_2)
+        self.assertEqual(len(tasks[1]["scope"]), 1)
+        self.assertEqual(tasks[1]["scope"][0], "/testdata/baseline/test01.dat")
+
+        wait_for_pending_requests(self, dataset_id_1)
+        wait_for_pending_requests(self, dataset_id_2)
+
+        tasks = get_pending_tasks(self)
+        self.assertEqual(len(tasks), 0)
+
+        tasks = get_new_tasks(self)
+        self.assertEqual(len(tasks), 4)
+
+        print("Re-populate generation queue and verify correct processing order of pending generation tasks - round 3")
+
+        tasks = reload_queue(self)
+        #print(json.dumps(tasks, indent=4))
+        self.assertEqual(len(tasks), 2)
+
+        self.assertEqual(tasks[0]["dataset"], dataset_id_1)
+        self.assertEqual(tasks[0]["id"], id_1_3)
+        self.assertEqual(tasks[0]["status"], "PENDING")
+        self.assertNotEqual(tasks[0]["task_id"], task_id_1_3)
+        self.assertEqual(len(tasks[0]["scope"]), 1)
+        self.assertEqual(tasks[0]["scope"][0], "/testdata/test03.dat")
+        self.assertEqual(tasks[1]["dataset"], dataset_id_2)
+        self.assertEqual(tasks[1]["id"], id_2_3)
+        self.assertEqual(tasks[1]["status"], "PENDING")
+        self.assertNotEqual(tasks[1]["task_id"], task_id_2_3)
+        self.assertEqual(len(tasks[1]["scope"]), 1)
+        self.assertEqual(tasks[1]["scope"][0], "/testdata/baseline/test03.dat")
+
+        wait_for_pending_requests(self, dataset_id_1)
+        wait_for_pending_requests(self, dataset_id_2)
+
+        tasks = get_pending_tasks(self)
+        self.assertEqual(len(tasks), 0)
+
+        tasks = get_new_tasks(self)
+        self.assertEqual(len(tasks), 2)
+
+        print("Re-populate generation queue and verify correct processing order of pending generation tasks - round 4")
+
+        tasks = reload_queue(self)
+        #print(json.dumps(tasks, indent=4))
+        self.assertEqual(len(tasks), 2)
+
+        self.assertEqual(tasks[0]["dataset"], dataset_id_1)
+        self.assertEqual(tasks[0]["id"], id_1_4)
+        self.assertNotEqual(tasks[0]["task_id"], task_id_1_4)
+        self.assertEqual(tasks[0]["status"], "PENDING")
+        self.assertEqual(len(tasks[0]["scope"]), 1)
+        self.assertEqual(tasks[0]["scope"][0], "/testdata/test05.dat")
+        self.assertEqual(tasks[1]["dataset"], dataset_id_2)
+        self.assertEqual(tasks[1]["id"], id_2_4)
+        self.assertNotEqual(tasks[1]["task_id"], task_id_2_4)
+        self.assertEqual(tasks[1]["status"], "PENDING")
+        self.assertEqual(len(tasks[1]["scope"]), 1)
+        self.assertEqual(tasks[1]["scope"][0], "/testdata/baseline/test05.dat")
+
+        wait_for_pending_requests(self, dataset_id_1)
+        wait_for_pending_requests(self, dataset_id_2)
+
+        tasks = get_new_tasks(self)
+        self.assertEqual(len(tasks), 0)
+
+        tasks = get_pending_tasks(self)
+        self.assertEqual(len(tasks), 0)
+
+        print("Re-populate generation queue and verify no further generation tasks to be queued")
+
+        tasks = reload_queue(self)
+        self.assertEqual(len(tasks), 0)
 
         # --------------------------------------------------------------------------------
         # If all tests passed, record success, in which case tearDown will be done

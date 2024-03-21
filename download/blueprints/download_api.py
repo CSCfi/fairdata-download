@@ -5,6 +5,7 @@
     Module for views used by Fairdata Download Service.
 """
 import json
+import uuid
 import requests
 import urllib.parse
 import urllib3
@@ -18,17 +19,19 @@ from jwt.exceptions import DecodeError
 from requests.exceptions import ConnectionError
 from ..services import task_service
 from ..services.cache import perform_housekeeping, purge_ghost_files, cleanup_package_cache, print_statistics, \
-                             validate_package_cache, get_datasets_dir, get_mock_notifications_dir
+                             validate_package_cache, get_datasets_dir, get_mock_notifications_dir, flush_cache
 from ..services.db import get_download_record_by_token, get_request_scopes, get_task_id_for_package, \
                           create_download_record, create_request_scope, create_subscription_row, create_task_rows, get_package, \
                           finalize_download_record, extract_event, update_package_generation_timestamps, update_package_file_size
 from ..services.metax import get_matching_project_identifier_from_metax, \
                              DatasetNotFound, UnexpectedStatusCode, MissingFieldsInResponse, NoMatchingFilesFound
+from ..services.mq import reload_queue
 from ..utils import normalize_timestamp, ida_service_is_offline, authenticate_trusted_service
 from ..model.requests import AuthorizePostData, DownloadQuerySchema, \
                              RequestsPostData, RequestsQuerySchema, SubscribePostData, \
                              MockNotifyPostData
 from ..events import construct_event_title
+
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -102,6 +105,7 @@ def get_request():
               enum:
                 - PENDING
                 - STARTED
+                - RETRY
                 - SUCCESS
                 - FAILED
       - schema:
@@ -272,6 +276,12 @@ def post_request():
         type: string
         example: [ "/testdata/Experiment_1/baseline" ]
         required: false
+      - name: testing
+        in: body
+        description: Boolean indicating whether request is executed by automated tests
+        type: boolean
+        example: True
+        required: false
     responses:
       200:
         description: Information about the initiated package generation request
@@ -287,6 +297,22 @@ def post_request():
       500:
         description: Unable to connect to Metax API or an unexpected status code received
     """
+
+    # Notes regarding order of processing:
+    #
+    # In the original implementation, new generation tasks were immediately queued for
+    # processing by the generation workers, resulting in all package requests being
+    # processed in order of receipt. This resulted in an unfair ability for a user to
+    # request generation of a large number of potentially large packages for a given
+    # dataset, dominating the generation process and preventing fair and timely handling
+    # of requests from other users for other datasets.
+    #
+    # The implementation was therefore modified so that processing of generation requests
+    # is interleaved by dataset, so that the queue is iteratively populated with one
+    # task per dataset, in order of original receipt. Each time the queue becomes empty
+    # (indicated by no tasks having a PENDING status), the queue is re-populated again
+    # with one task per dataset. In this way, generation takes turns between datasets
+    # resulting in a more fair ordering of generation.
 
     current_app.logger.debug("POST /requests: %s" % json.dumps(request.get_json()))
 
@@ -323,24 +349,47 @@ def post_request():
         abort(409, err)
 
     created = False
-
+ 
     # Create new task if no such already exists
     if not task_row:
-        from ..tasks import generate_task
 
-        task = generate_task.delay(
-            dataset,
-            project_identifier,
-            list(generate_scope))
+        # Originally, each new task was queued immediately, and the unique message ID generated
+        # by Celery was used as the task_id value in the database tables, and the project idenifier
+        # was provided to the call to Celery for inclusion in the message details; however, now that
+        # queuing is delayed, we need a way to both create a temporary task_id token as well as pass
+        # preserve the project identifier so that we don't have to fetch it again from Metax when the
+        # task is eventually queued.
+        #
+        # To achieve both, we create a temporary unique task_id token value which combines the project
+        # identifier with an opaque randomly generated string, and this temporary token is stored in
+        # the various task related database tables. When the task is eventually queued, the temporary
+        # token is parsed to extract the project identifier, the task is queued via Celery, and the
+        # temporary token replaced in all database tables with the actual message specific token
+        # generated by Celery as part of the queuing process.
+        #
+        # Finally, rather than immediately queueing the new task for the received generation request,
+        # the function which re-populates the queue, if needed, is called. If the queue is not empty,
+        # the task simply remains defined in the database waiting for queuing, but if the queue is
+        # empty then the new task becomes immediately queued as before and there is thus no artificial
+        # delay between receiving a generation request and processing pending requests.
 
-        task_row = create_task_rows(
-            dataset, task.id, is_partial, generate_scope)
+        task_id = "%s %s" % (project_identifier, uuid.uuid4())
+
+        task_row = create_task_rows(dataset, task_id, is_partial, generate_scope)
 
         if is_partial:
-            create_request_scope(task.id, request_scope)
+            create_request_scope(task_id, request_scope)
+
+        # If running automated tests, do not immediately update the worker queue, but let the
+        # tests check first the results of the API query and reload the queue afterwards
+
+        if request_data.get('testing') != True:
+            reload_queue()
 
         created = True
+
     else:
+
         current_app.logger.info(
             "Found request with status '%s' for dataset '%s'" %
             (task_row['status'], dataset))
@@ -477,7 +526,7 @@ def post_subscribe():
 
     if not task_row:
         abort(404, 'No matching package generation tasks were found.')
-    elif task_row['status'] not in ['PENDING', 'STARTED', 'RETRY']:
+    elif task_row['status'] not in ['NEW', 'PENDING', 'STARTED', 'RETRY']:
         abort(409, "Status of the matching active package generation task is '%s'." % task_row['status'])
 
     create_subscription_row(task_row['task_id'], notify_url, subscription_data)
@@ -880,6 +929,27 @@ def validate_endpoint():
 
     try:
         status = validate_package_cache()
+        return Response(status, mimetype='text/plain', status=200) 
+    except Exception as e:
+        return Response(str(e), mimetype='text/plain', status=500) 
+
+
+@download_api.route('/flush', methods=['POST'])
+def flush_endpoint():
+    """
+    Internally available end point for flushing cache entirely.
+    """
+
+    current_app.logger.debug("POST /flush")
+
+    # Authenticate the trusted service making the request
+    try:
+        authenticate_trusted_service(current_app, request)
+    except PermissionError as err:
+        abort(401, str(err))
+
+    try:
+        status = flush_cache()
         return Response(status, mimetype='text/plain', status=200) 
     except Exception as e:
         return Response(str(e), mimetype='text/plain', status=500) 

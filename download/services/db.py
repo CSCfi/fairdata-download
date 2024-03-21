@@ -10,13 +10,12 @@ import json
 import click
 import pendulum
 import dateutil.parser
-import logging
 from datetime import datetime
 from flask import current_app, g
 from flask.cli import AppGroup
 from jwt import decode
 from ..dto import Package
-from ..utils import normalize_timestamp, normalize_logging
+from ..utils import normalize_timestamp
 
 
 def get_db():
@@ -131,33 +130,106 @@ def get_request_scopes(task_id):
     return request_scopes
 
 
-def get_task_rows(dataset_id, initiated_after='1970-01-01 00:00:00'):
+def update_task_id(old_task_id, new_task_id):
     """
-    Returns a rows from file_generate table for a dataset.
+    Updates task id in all records of tables containing them, replacing the old task id with the new task id
+    (used to replace a temporary id of a new task with the actual id of a queued task)
 
-    :param dataset_id: ID of dataset for which task rows are fetched
-    :param initiated_after: timestamp after which fetched tasks may have been initialized
+    :param old_task_id: the old task id to be replaced
+    :param new_task_id: the new task id to be recorded
     """
+
     db_conn = get_db()
     db_cursor = db_conn.cursor()
 
-    if isinstance(initiated_after, str):
-        initiated_after = datetime.utcfromtimestamp(dateutil.parser.parse(initiated_after).timestamp())
-    elif isinstance(initiated_after, float) or isinstance(initiated_after, int):
-        initiated_after = datetime.utcfromtimestamp(initiated_after)
-    elif not isinstance(initiated_after, datetime):
-        raise Exception("Invalid timestamp value")
+    db_cursor.execute("UPDATE generate_task    SET task_id = ? WHERE task_id = ?", (new_task_id, old_task_id))
+    db_cursor.execute("UPDATE generate_scope   SET task_id = ? WHERE task_id = ?", (new_task_id, old_task_id))
+    db_cursor.execute("UPDATE generate_request SET task_id = ? WHERE task_id = ?", (new_task_id, old_task_id))
+    db_cursor.execute("UPDATE subscription     SET task_id = ? WHERE task_id = ?", (new_task_id, old_task_id))
+
+    db_conn.commit()
+
+
+def update_task_status(task_id, status):
+    """
+    Updates the task matching the specified task_id with the specified status.
+    (used to replace the temporary NEW status of a new task with PENDING when the task is queued)
+
+    :param task_id: the task id of the task
+    :param status: the task status to be recorded
+    """
+
+    db_conn = get_db()
+    db_cursor = db_conn.cursor()
+
+    db_cursor.execute("UPDATE generate_task    SET status = ? WHERE task_id = ?", (status, task_id))
+
+    db_conn.commit()
+
+
+def get_task_rows(dataset_id, initiated_after):
+    """
+    Returns rows from file_generate table for a dataset, or for all datasets of no dataset id specified. 
+
+    :param dataset_id: ID of dataset for which task rows are fetched, if specified
+    :param initiated_after: timestamp after which fetched tasks may have been initialized, ignored if no dataset_id specified
+    """
+
+    db_conn = get_db()
+    db_cursor = db_conn.cursor()
+
+    if dataset_id:
+
+        if not initiated_after:
+            initiated_after = '1970-01-01 00:00:00'
+
+        if isinstance(initiated_after, str):
+            initiated_after = datetime.utcfromtimestamp(dateutil.parser.parse(initiated_after).timestamp())
+        elif isinstance(initiated_after, float) or isinstance(initiated_after, int):
+            initiated_after = datetime.utcfromtimestamp(initiated_after)
+        elif not isinstance(initiated_after, datetime):
+            raise Exception("Invalid timestamp value")
+
+        return db_cursor.execute(
+            'SELECT initiated, date_done, task_id, status, is_partial '
+            'FROM generate_task t '
+            'LEFT JOIN package p '
+            'ON t.task_id = p.generated_by '
+            'WHERE t.dataset_id = ? '
+            'AND t.initiated > ? '
+            'AND ((t.status is "SUCCESS" and p.filename is not null) '
+            '  OR (t.status is not "SUCCESS" and t.status is not "FAILURE")) '
+            'ORDER BY t.id ASC ',
+            (dataset_id, initiated_after)
+        ).fetchall()
+    else:
+        return db_cursor.execute(
+            'SELECT dataset_id, initiated, date_done, task_id, status, is_partial '
+            'FROM generate_task t '
+            'LEFT JOIN package p '
+            'ON t.task_id = p.generated_by '
+            'WHERE ((t.status is "SUCCESS" and p.filename is not null) '
+            '    OR (t.status is not "SUCCESS" and t.status is not "FAILURE")) '
+            'ORDER BY t.id ASC '
+        ).fetchall()
+
+
+def get_task_rows_for_status(status):
+    """
+    Returns rows from file_generate table with the specified status.
+
+    :param status: task status
+    """
+
+    db_conn = get_db()
+    db_cursor = db_conn.cursor()
 
     return db_cursor.execute(
-        'SELECT initiated, date_done, task_id, status, is_partial '
-        'FROM generate_task t '
-        'LEFT JOIN package p '
-        'ON t.task_id = p.generated_by '
-        'WHERE t.dataset_id = ? '
-        'AND t.initiated > ? '
-        'AND ((t.status is "SUCCESS" and p.filename is not null) '
-        '  OR (t.status is not "SUCCESS" and t.status is not "FAILURE")) ',
-        (dataset_id, initiated_after)
+        'SELECT * '
+        'FROM generate_task '
+        'WHERE status is ? '
+        'ORDER BY id ASC ',
+        (status,)
     ).fetchall()
 
 
@@ -295,7 +367,7 @@ def create_task_rows(dataset_id, task_id, is_partial, generate_scope):
 
     db_cursor.execute(
         "INSERT INTO generate_task (dataset_id, task_id, status, is_partial) "
-        "VALUES (?, ?, 'PENDING', ?)",
+        "VALUES (?, ?, 'NEW', ?)",
         (dataset_id, task_id, is_partial))
 
     for filepath in generate_scope:
@@ -383,6 +455,31 @@ def get_active_packages():
                 converted[k] = pendulum.from_timestamp(v / 1e3)  # sqlite millisecond timestamp
         packages.append(Package(filename, size_bytes, no_downloads, **converted))
     return packages
+
+
+def flush_cache_rows():
+    """
+    Flush rows from all cache and queue related tables
+    """
+
+    db_conn = get_db()
+    db_cursor = db_conn.cursor()
+
+    for table in [
+        'package',
+        'generate_task',
+        'generate_scope',
+        'generate_taskgroup',
+        'generate_request',
+        'generate_request_scope',
+        'subscription'
+        ]:
+
+        db_cursor.execute("DELETE FROM %s" % table)
+
+        current_app.logger.info("Truncated all rows from table %s" % table)
+
+    db_conn.commit()
 
 
 def delete_package_rows(filenames):
