@@ -209,6 +209,10 @@ def get_request():
     for task_row in task_rows:
         if not task_row['is_partial']:
             response['status'] = task_row['status']
+            # The NEW status is internal only, used for queue management, and is equivalent to PENDING insofar
+            # as external clients are concerned, so map any NEW status to PENDING in the response
+            if response['status'] == 'NEW':
+                response['status'] = 'PENDING'
             response['initiated'] = normalize_timestamp(task_row['initiated'])
 
             if task_row['status'] == 'SUCCESS':
@@ -231,6 +235,9 @@ def get_request():
                     'status': task_row['status'],
                     'initiated': normalize_timestamp(task_row['initiated'])
                 }
+                # Map any internal NEW status to PENDING in the response
+                if partial_task['status'] == 'NEW':
+                    partial_task['status'] = 'PENDING'
 
                 if task_row['status'] == 'SUCCESS':
                     partial_task['generated'] = normalize_timestamp(task_row['date_done'])

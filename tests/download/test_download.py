@@ -407,7 +407,7 @@ class TestDownload(unittest.TestCase):
         response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id_1), auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         response_json = response.json()
-        self.assertTrue(response_json.get('status') in ['STARTED', 'RETRY', 'PENDING', 'NEW'], response.content.decode(sys.stdout.encoding))
+        self.assertEqual(response_json.get('status'), 'PENDING', response.content.decode(sys.stdout.encoding))
 
         print("Subscribe to notification of generation of dataset package")
         data = { "dataset": dataset_id_1, "subscriptionData": "abcdef", "notifyURL": "https://%s:4431/mock_notify" % socket.gethostname() }
@@ -425,7 +425,7 @@ class TestDownload(unittest.TestCase):
         response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id_1), auth=self.token_auth)
         self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
         response_json = response.json()
-        self.assertTrue(response_json.get('status') in ['STARTED', 'RETRY', 'PENDING', 'NEW'], response.content.decode(sys.stdout.encoding))
+        self.assertEqual(response_json.get('status'), 'PENDING', response.content.decode(sys.stdout.encoding))
 
         self.assertTrue(make_ida_online(self))
 

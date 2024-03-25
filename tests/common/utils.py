@@ -264,23 +264,12 @@ def wait_for_pending_requests(self, dataset_pid):
     pending = True
     looped = False
     while pending and time.time() < max_time:
-        response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_pid), auth=self.token_auth)
-        self.assertTrue(response.status_code in [ 200, 404 ],  "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
-        if response.status_code == 200:
-            response_json = response.json()
-            status = response_json.get('status')
-            pending = status in [ 'PENDING', 'RETRY' ]
-            if not pending:
-                partial = response_json.get('partial', [])
-                for req in partial:
-                    if not pending:
-                        pending = req.get('status') in [ 'PENDING', 'RETRY' ]
-            if pending:
-                looped = True
-                print(".", end='', flush=True)
-                time.sleep(1)
-        else: # 404
-            pending = False
+        tasks = get_pending_tasks(self)
+        pending = len(tasks) > 0
+        if pending:
+            looped = True
+            print(".", end='', flush=True)
+            time.sleep(1)
     if looped:
         print("")
     self.assertTrue(time.time() < max_time, "Timed out waiting for requested packages to be generated")
