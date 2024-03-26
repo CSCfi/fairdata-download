@@ -214,6 +214,7 @@ class TestDownload(unittest.TestCase):
         response_json = response.json()
         self.assertIsNotNone(response_json)
         self.assertEqual(response_json.get('dataset'), dataset_id_1, response.content.decode(sys.stdout.encoding))
+        self.assertEqual(response_json.get('status'), 'PENDING', response.content.decode(sys.stdout.encoding))
 
         tasks = get_new_tasks(self)
         self.assertEqual(len(tasks), 1)
@@ -273,6 +274,10 @@ class TestDownload(unittest.TestCase):
         response_json = response.json()
         self.assertIsNotNone(response_json)
         self.assertEqual(response_json.get('dataset'), dataset_id_1, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
+        partial = response_json.get('partial')
+        self.assertIsNotNone(partial)
+        self.assertEqual(len(partial), 1)
+        self.assertEqual(partial[0].get('status'), 'PENDING', response.content.decode(sys.stdout.encoding))
 
         tasks = get_new_tasks(self)
         self.assertEqual(len(tasks), 1)
@@ -402,6 +407,7 @@ class TestDownload(unittest.TestCase):
         response_json = response.json()
         self.assertIsNotNone(response_json)
         self.assertEqual(response_json.get('dataset'), dataset_id_1, response.content.decode(sys.stdout.encoding))
+        self.assertEqual(response_json.get('status'), 'PENDING', response.content.decode(sys.stdout.encoding))
 
         print("Verify that package generation request is pending")
         response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id_1), auth=self.token_auth)

@@ -420,6 +420,12 @@ def post_request():
             response['package'] = package_row['filename']
             response['size'] = package_row['size_bytes']
             response['checksum'] = package_row['checksum']
+
+        # The NEW status is internal only, used for queue management, and is equivalent to PENDING insofar
+        # as external clients are concerned, so map any NEW status to PENDING in the response
+        if response['status'] == 'NEW':
+            response['status'] = 'PENDING'
+
     else:
         partial_task = {
             'scope': request_scope,
@@ -434,6 +440,10 @@ def post_request():
             partial_task['package'] = package_row['filename']
             partial_task['size'] = package_row['size_bytes']
             partial_task['checksum'] = package_row['checksum']
+
+        # Map any internal NEW status to PENDING in the response
+        if partial_task['status'] == 'NEW':
+            partial_task['status'] = 'PENDING'
 
         response['partial'] = [partial_task]
     return jsonify(response)
