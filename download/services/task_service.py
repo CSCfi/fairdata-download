@@ -84,13 +84,6 @@ def get_active_tasks(dataset_id):
         except UnexpectedStatusCode:
             raise
 
-    # >>>
-    # Temp hack - if dataset specified, get tasks for all datasets, filtering by specified dataset afterwards (results should be equivalent)
-    temp_dataset_id = dataset_id
-    dataset_id = None
-    dataset_modified = None
-    # <<<
-
     task_rows = db.get_task_rows(dataset_id, dataset_modified)
 
     # When no dataset specified, filter out tasks initiated earlier than last dataset modification timestamp
@@ -112,17 +105,6 @@ def get_active_tasks(dataset_id):
                 pass
         dataset_id = None
         task_rows = task_rows_ok
-
-    # >>>
-    # Temp hack - restrict results to any specified dataset
-    dataset_id = temp_dataset_id
-    if dataset_id:
-        temp_task_rows = []
-        for row in task_rows:
-            if row['dataset_id'] == dataset_id:
-                temp_task_rows.append(row)
-        task_rows = temp_task_rows
-    # <<<
 
     if len(task_rows) == 0:
         raise NoActiveTasksFound(dataset_id)
