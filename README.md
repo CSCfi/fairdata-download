@@ -34,6 +34,12 @@ https://github.com/pypa/pipx
 # Setup part 2: Then, with pipx install poetry
 pipx install poetry
 
+# Explicitly use Fairdata python version
+poetry env use /usr/local/fd/python3/bin/python3.8
+
+# Disable export warnings
+poetry config warnings.export false
+
 # Installing dependencies
 poetry install
 ```
@@ -54,7 +60,7 @@ poetry add --dev {{ dependency }}
 poetry export --without-hashes -o requirements.txt
 
 # Update requirements-dev.txt
-poetry export --dev --without-hashes -o requirements-dev.txt
+poetry export --with dev --without-hashes -o requirements-dev.txt
 ```
 
 License
