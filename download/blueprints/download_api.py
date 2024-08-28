@@ -68,6 +68,30 @@ def publish_event(event):
         current_app.logger.error("Malformed event: %s: %s" % (str(error), json.dumps(event)))
 
 
+@download_api.route('/status', methods=['GET'])
+def get_status():
+    """Reports whether IDA is in OFFLINE mode or not and whether individual file download is available.
+    ---
+    tags:
+      - Public
+    produces:
+      - application/json
+    responses:
+      200:
+        description: IDA is in online mode and downloads are supported
+      500:
+        description: An unexpected error occured
+      503:
+        description: IDA is in offline mode and downloads are unavailable
+    """
+    try:
+        if ida_service_is_offline(current_app):
+            return jsonify({'status': 'The IDA service is offline. Individual file download is currently unavailable.', }), 503
+        return jsonify({'status': 'The IDA service is online. Downloads are fully supported.', }), 200
+    except Exception as err:
+        abort(500, err)
+
+
 @download_api.route('/requests', methods=['GET'])
 def get_request():
     """Internally available end point for file generation request data.

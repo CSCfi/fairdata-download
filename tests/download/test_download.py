@@ -184,6 +184,10 @@ class TestDownload(unittest.TestCase):
 
         # --------------------------------------------------------------------------------
 
+        print("Verify that status reports that IDA is online and that individual file downloads are supported")
+        response = requests.get("https://%s:4431/status" % self.hostname)
+        self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
+
         print("Verify that no active package generation requests exist for dataset")
         response = requests.get("https://%s:4431/requests?dataset=%s" % (self.hostname, dataset_id_1), auth=self.token_auth)
         self.assertEqual(response.status_code, 404, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
@@ -348,6 +352,10 @@ class TestDownload(unittest.TestCase):
             self.success = True
             return
 
+        print("Verify that status reports that IDA is offline and that individual file downloads are not supported")
+        response = requests.get("https://%s:4431/status" % self.hostname)
+        self.assertEqual(response.status_code, 503, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
+
         print("Authorize individual dataset file download")
         data = { "dataset": dataset_id_1, "file": filename }
         response = requests.post("https://%s:4431/authorize" % self.hostname, json=data, auth=self.token_auth)
@@ -434,6 +442,10 @@ class TestDownload(unittest.TestCase):
         self.assertEqual(response_json.get('status'), 'PENDING', response.content.decode(sys.stdout.encoding))
 
         self.assertTrue(make_ida_online(self))
+
+        print("Verify that status reports that IDA is online and that individual file downloads are supported")
+        response = requests.get("https://%s:4431/status" % self.hostname)
+        self.assertEqual(response.status_code, 200, "%s %s" % (response.status_code, response.content.decode(sys.stdout.encoding)[:1000]))
 
         tasks = get_new_tasks(self)
         self.assertEqual(len(tasks), 1)

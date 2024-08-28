@@ -24,9 +24,9 @@ querying the status of available or pending dataset packages, and authorizing do
 of dataset packages or individual files.
 </p>
 <p>
-<i>NOTE: Only the /download API endpoint is publically accessible. All other endpoints
-are restricted to trusted internal services and the documentation provided herein is for
-the development and testing of internal integrations.</i>
+<i>NOTE: Most API endpoints are internal and are restricted to trusted services and
+require authentication. The documentation provided herein is for the development and
+testing of internal integrations.</i>
 </p>  
 </div>
 """
