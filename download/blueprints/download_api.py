@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 from marshmallow import ValidationError
 from os import path
 from flask import Blueprint, Response, abort, current_app, jsonify, request, stream_with_context
+from unidecode import unidecode
 from jwt import decode, encode, ExpiredSignatureError
 from jwt.exceptions import DecodeError
 from requests.exceptions import ConnectionError
@@ -37,6 +38,29 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 download_api = Blueprint('download-api', __name__)
 
+def create_content_disposition_header(filename):
+    """
+    Creates a Content-Disposition header that correctly handles non-ASCII characters
+    according to RFC 5987.
+    
+    Args:
+        filename (str): The original filename, which may contain Unicode characters.
+
+    Returns:
+        str: A correctly formatted Content-Disposition header value.
+    """
+    # Create a safe, ASCII-only version of the filename for older browsers
+    ascii_fallback_filename = unidecode(filename)
+    
+    # URL-encode the UTF-8 version of the filename for modern browsers
+    utf8_encoded_filename = urllib.parse.quote(filename, safe='')
+    
+    # Construct the full header value
+    header = (
+        f'attachment; filename="{ascii_fallback_filename}"; '
+        f"filename*=UTF-8''{utf8_encoded_filename}"
+    )
+    return header
 
 def publish_event(event):
     """
@@ -791,7 +815,6 @@ def authorize():
 
     return jsonify(token=jwt_token.decode())
 
-
 @download_api.route('/download', methods=['GET'])
 def download():
     """Publically accessible endpoint for file or package download with a valid single-use token.
@@ -874,7 +897,7 @@ def download():
         except NoMatchingFilesFound as err:
             abort(404, 'The specified file does not belong to the specified dataset')
 
-        # Ensure project associated with file matches the project specified in the authorizaiton token 
+        # Ensure project associated with file matches the project specified in the authorization token
         if project_identifier != jwt_payload.get('project'):
             abort(409, 'File project does not match authorization token project')
 
@@ -925,13 +948,17 @@ def download():
         finalize_download_record(download_id, False)
         publish_event(extract_event(download_id))
 
-    response_headers= {
-        'Content-Type': 'application/octet-stream',
-        'Content-Disposition': 'attachment; filename="%s"'
-        % (package or filepath.split('/')[-1])
-    }
-    return Response(stream_with_context(stream_response()), headers=response_headers)
+    # Determine original filename
+    original_filename = package or filepath.split('/')[-1]
 
+    # Build headers using helper function
+    response_headers = {
+        'Content-Type': 'application/octet-stream',
+        'Content-Disposition': create_content_disposition_header(original_filename)
+    }
+
+    # Return response object from the main function
+    return Response(stream_with_context(stream_response()), headers=response_headers)
 
 @download_api.route('/housekeep', methods=['POST'])
 def housekeep_endpoint():
