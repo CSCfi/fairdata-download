@@ -139,7 +139,7 @@ def metax_dataset_files_available(monkeypatch):
 def mock_metax(monkeypatch, recorder):
     def mock_get_metax(url, auth={}, headers={}):
         recorder.called = True
-        if url.endswith('files') or url.endswith('files?pagination=false'):
+        if url.endswith('files') or 'pagination=false' in url:
             return MetaxDatasetFilesResponse("no-tasks", 200)
         else:
             return MetaxDatasetResponse("no-tasks", 200)

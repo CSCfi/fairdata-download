@@ -7,6 +7,7 @@
     Supports both version 1 and 3 of the Metax API, determined by configuration.
 """
 import requests
+import urllib
 import json
 from flask import current_app
 from requests.exceptions import ConnectionError
@@ -111,6 +112,65 @@ def get_dataset(dataset):
     except ConnectionError:
         raise
 
+def get_dataset_file(dataset, filepath):
+    """
+    Requests dataset file metadata from Metax API for a specific file.
+    """
+    try:
+        current_app.logger.debug("Retrieving file for dataset %s and filepath %s" % (dataset, filepath))
+
+        if current_app.config.get('METAX_VERSION', 1) >= 3:
+            metax_response = get_metax('datasets/%s/files?pathname=%s&pagination=false' % (dataset, urllib.parse.quote(filepath)))
+        else:
+            metax_response = get_metax('datasets/%s/files' % dataset)
+
+        if metax_response.status_code != 200:
+            current_app.logger.error("Received unexpected status code '%s' from Metax API" % metax_response.status_code)
+            raise UnexpectedStatusCode
+
+        current_app.logger.debug("Successfully retrieved file metadata for dataset %s and filepath %s" % (dataset, filepath))
+
+        # Example response from Metax v3:
+	    # [
+		#     {
+		#	     "id": "9f47ebed-f2f1-483c-b5c6-aa770fb6501a",
+		#	     "storage_identifier": "68ae50e3c88e0817174990f92055",
+		#	     "pathname": "/testdata/2017-08/Experiment_1/test01.dat",
+		#	     "filename": "test01.dat",
+		#	     "size": 446,
+		#	     "storage_service": "ida",
+		#	     "csc_project": "fd_test_fairdata_project",
+		#	     "checksum": "sha256:56293a80e0394d252e995f2debccea8223e4b5b2b150bee212729b3b39ac4d46",
+		#	     "frozen": "2025-08-27T00:27:15Z",
+		#	     "modified": "2025-08-18T11:40:26Z",
+		#	     "published": "2025-08-27T00:34:20Z",
+		#	     "user": "fd_test_fairdata_user",
+		#	     "pas_process_running": false
+		#     }
+	    # ]
+
+        metax_file = None
+
+        results = metax_response.json()
+
+        if results and isinstance(results, list):
+            # Get first result where pathname perfectly matches filepath 
+            # (in v3, the results will only contain one or zero matches)
+            for result in results:
+                if current_app.config.get('METAX_VERSION', 1) >= 3:
+                    pathname = result['pathname']
+                else:
+                    pathname = result['file_path']
+                if pathname == filepath:
+                    metax_file = result
+                    break
+        else:
+            raise Exception("Unexpected response from Metax: %s" % results)
+
+        return metax_file  
+
+    except ConnectionError:
+        raise
 
 def get_dataset_files(dataset):
     """"Requests dataset files metadata from Metax API.
@@ -181,25 +241,20 @@ def get_matching_project_identifier_from_metax(dataset_id, filepath):
     project to which the file belongs.
     """
     try:
-        metax_files_response = get_dataset_files(dataset_id)
+        metax_file = get_dataset_file(dataset_id, filepath)
     except ConnectionError:
         raise
     except UnexpectedStatusCode:
         raise
 
-    if current_app.config.get('METAX_VERSION', 1) >= 3:
-        matching_files = list(filter(lambda metax_file: metax_file['pathname'] == filepath, metax_files_response))
-    else:
-        matching_files = list(filter(lambda metax_file: metax_file['file_path'] == filepath, metax_files_response))
-
-    if len(matching_files) == 0:
+    if not metax_file:
         raise NoMatchingFilesFound(dataset_id)
 
     if current_app.config.get('METAX_VERSION', 1) >= 3:
-        return matching_files[-1].get('csc_project')
+        return metax_file.get('csc_project')
     else:
-        return matching_files[-1].get('project_identifier')
-
+        return metax_file.get('project_identifier')
+    
 
 def get_matching_dataset_files_from_metax(dataset_id, scope):
     try:

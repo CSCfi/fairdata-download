@@ -27,16 +27,21 @@ import requests
 import subprocess
 
 DATASET_TEMPLATE_V3 = {
-    "pid_type": "URN",
+    "generate_pid_on_publish": "URN",
     "data_catalog": "urn:nbn:fi:att:data-catalog-ida",
     "metadata_owner": {
-        "user": "test_user",
-        "organization": "Test Organization"
+        "user": "test_user_a",
+        "organization": "Test Organization A"
     },
     "access_rights": {
         "access_type": {
             "url": "http://uri.suomi.fi/codelist/fairdata/access_type/code/open"
-        }
+        },
+       "license": [
+			{
+				"url": "http://uri.suomi.fi/codelist/fairdata/license/code/CC0-1.0"
+			}
+		]
     },
     "actors": [
         {
