@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+#--------------------------------------------------------------------------------
+
+SCRIPT_PATHNAME=$(realpath "$0")
+SCRIPT_DIR=$(dirname "$SCRIPT_PATHNAME")
+SCRIPT=$(basename "$SCRIPT_PATHNAME")
+ROOT=$(dirname "$SCRIPT_DIR")
+
+USAGE="
+Usage: $SCRIPT PACKAGE_FILENAME
+       $SCRIPT -h
+"
+
+source "$SCRIPT_DIR/lib/init_appsupport_script.sh"
+
+PACKAGE_FILENAME="$1"
+verify_required_value "PACKAGE_FILENAME"
+
+PACKAGE_PATHNAME="$DOWNLOAD_CACHE_DIR/datasets/$PACKAGE_FILENAME"
+
+if [ "$DEBUG" = "true" ]; then
+    echo "PACKAGE_PATHNAME:      $PACKAGE_PATHNAME"
+fi
+
+if [ ! -f "$PACKAGE_PATHNAME" ]; then
+    echo "The specified package file $PACKAGE_FILENAME does not exist" >&2
+    exit 1
+fi
+
+#--------------------------------------------------------------------------------
+
+rm -f "$PACKAGE_PATHNAME"
+
+$ROOT/appsupport/validate-cache
+

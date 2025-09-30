@@ -326,7 +326,9 @@ def print_statistics():
     return stats
 
 
-def remove_cache_files(files_list: List[Package] = None):
+def remove_cache_files(files_list: List[Package] = None) -> List[str]:
+
+    removed_files = []
 
     if not files_list or len(files_list) == 0:
 
@@ -335,8 +337,6 @@ def remove_cache_files(files_list: List[Package] = None):
     else:
 
         file_names = [i.filename for i in files_list]
-
-        removed_files = []
 
         # Remove all package records for the specified package filenames
 
@@ -359,7 +359,7 @@ def remove_cache_files(files_list: List[Package] = None):
         current_app.logger.info(f"Removed packages: {file_names}")
         current_app.logger.info(f"Removed files: {removed_files}")
 
-        return(file_names)
+    return(removed_files)
 
 
 def get_datasets_dir():
@@ -397,7 +397,7 @@ def validate_command():
 
 @cache_cli.command("cleanup")
 def cleanup_command():
-    """Execute cache housekeeping operation."""
+    """Execute cache cleanup operation."""
     print(cleanup_package_cache())
 
 

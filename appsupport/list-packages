@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+#--------------------------------------------------------------------------------
+
+SCRIPT_PATHNAME=$(realpath "$0")
+SCRIPT_DIR=$(dirname "$SCRIPT_PATHNAME")
+SCRIPT=$(basename "$SCRIPT_PATHNAME")
+ROOT=$(dirname "$SCRIPT_DIR")
+
+USAGE="
+Usage: $SCRIPT [DATASET_ID]
+       $SCRIPT -h
+"
+
+source "$SCRIPT_DIR/lib/init_appsupport_script.sh"
+
+DATASET_ID="$1"
+
+#--------------------------------------------------------------------------------
+
+cd "$DOWNLOAD_CACHE_DIR"
+
+if [ "$DATASET_ID" ]; then
+    ls | grep '.zip' | grep "$DATASET_ID"
+else
+    ls | grep '.zip'
+fi
+

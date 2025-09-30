@@ -6,10 +6,12 @@
 # It should NOT be used in production.
 #--------------------------------------------------------------------------------
 
-SCRIPT="$(realpath $0)"
-UTILS=`dirname "$SCRIPT"`
+SCRIPT_PATHNAME=$(realpath "$0")
+SCRIPT=$(basename "$SCRIPT_PATHNAME")
+SCRIPT_DIR=$(dirname "$SCRIPT_PATHNAME")
+ROOT=$(dirname "$SCRIPT_DIR")
 
-source $UTILS/init-dev-script.sh
+source "$SCRIPT_DIR/lib/init-dev-script.sh"
 
 #--------------------------------------------------------------------------------
 

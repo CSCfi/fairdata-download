@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 #--------------------------------------------------------------------------------
 
-SCRIPT="$(realpath $0)"
-SCRIPT_NAME=`basename $SCRIPT`
-UTILS=`dirname "$SCRIPT"`
+SCRIPT_PATHNAME=$(realpath "$0")
+SCRIPT=$(basename "$SCRIPT_PATHNAME")
+SCRIPT_DIR=$(dirname "$SCRIPT_PATHNAME")
+ROOT=$(dirname "$SCRIPT_DIR")
 
-source $UTILS/init-dev-script.sh
+source "$SCRIPT_DIR/lib/init-dev-script.sh"
+
+#--------------------------------------------------------------------------------
 
 if [ -z "$1" ]; then
-    echo "Usage: $SCRIPT_NAME package_filename" >&2
+    echo "Usage: $SCRIPT package_filename" >&2
     exit 1
 fi
 
@@ -16,10 +19,10 @@ fi
 
 PATHNAME="$DOWNLOAD_CACHE_DIR/datasets/$1"
 
-if [ ! -f $PATHNAME ]; then
+if [ ! -f "$PATHNAME" ]; then
     echo "The specified package file $1 does not exist" >&2
     exit 1
 fi
 
-cat /dev/null > $PATHNAME
+cat /dev/null > "$PATHNAME"
 

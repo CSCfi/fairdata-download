@@ -21,7 +21,7 @@ tmp/
 /config
 /tests/config
 /dev_config/settings.cfg
-
+settings.cfg
 .env
 *.db
 

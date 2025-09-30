@@ -4,14 +4,14 @@
 # instance of the download service. It should NOT be used in production.
 #--------------------------------------------------------------------------------
 
-SCRIPT="$(realpath $0)"
-TESTS=`dirname "$SCRIPT"`
-ROOT=`dirname "$TESTS"`
-
-source $ROOT/utils/init-dev-script.sh
-source $ROOT/venv/bin/activate
+SCRIPT=$(realpath "$0")
+TESTS=$(dirname "$SCRIPT")
+ROOT=$(dirname "$TESTS")
 
 cd $ROOT
+
+source $ROOT/utils/lib/init-dev-script.sh
+source $ROOT/venv/bin/activate
 
 if [ "$1" != "--skip-unit-tests" ]; then
 

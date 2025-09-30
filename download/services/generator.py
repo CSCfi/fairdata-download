@@ -56,14 +56,14 @@ def generate(dataset, project_identifier, scope, requestor_id):
                 current_app.logger.debug("Adding '%s' to zip archive." % (filename,))
                 myzip.write(absolute_filename, arcname='.'+filename)
 
+    output_filesize = os.path.getsize(output_filename)
+
     # If the IDA service is offline (having gone offline since generation of the package began), discard
     # the generated package file (assume potentially corrupted)
     if ida_service_is_offline(current_app):
         current_app.logger.warn("IDA service offline. Discarding package file '%s' of size %s bytes." % (os.path.basename(output_filename), output_filesize))
         os.remove(output_filename)
         return
-
-    output_filesize = os.path.getsize(output_filename)
 
     # If the generated package file is zero sized, discard the generated package file
     if output_filesize == 0:

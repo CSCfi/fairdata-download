@@ -14,9 +14,11 @@ umask 007
 
 #DEBUG="true" # TEMP HACK
 
-SCRIPT="$(realpath $0)"
-UTILS=`dirname "$SCRIPT"`
-ROOT=`dirname "$UTILS"`
+INIT_SCRIPT_PATHNAME=$(realpath "${BASH_SOURCE[0]}")
+INIT_SCRIPT_DIR=$(dirname "$INIT_SCRIPT_PATHNAME")
+INIT_SCRIPT=$(basename "$INIT_SCRIPT_PATHNAME")
+UTILS=$(dirname "$INIT_SCRIPT_DIR")
+ROOT=$(dirname "$UTILS")
 
 if [ -z "$DOWNLOAD_SETTINGS" ]; then
     if [ -d "$ROOT/config" ]; then
@@ -26,8 +28,8 @@ if [ -z "$DOWNLOAD_SETTINGS" ]; then
     fi
 fi
 
-if [ -z "$DOWNLOAD_SERVICE_VENV" ]; then
-    DOWNLOAD_SERVICE_VENV="$ROOT/venv"
+if [ -z "$DOWNLOAD_VENV" ]; then
+    DOWNLOAD_VENV="$ROOT/venv"
 fi
 
 if [ ! -f "$DOWNLOAD_SETTINGS" ]; then

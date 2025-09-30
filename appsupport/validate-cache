@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+#--------------------------------------------------------------------------------
+
+SCRIPT_PATHNAME=$(realpath "$0")
+SCRIPT_DIR=$(dirname "$SCRIPT_PATHNAME")
+SCRIPT=$(basename "$SCRIPT_PATHNAME")
+ROOT=$(dirname "$SCRIPT_DIR")
+
+source "$SCRIPT_DIR/lib/init_appsupport_script.sh"
+
+#--------------------------------------------------------------------------------
+
+cd "$ROOT"
+source $DOWNLOAD_VENV/bin/activate
+flask cache validate
+
