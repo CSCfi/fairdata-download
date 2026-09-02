@@ -10,6 +10,8 @@ import requests
 import urllib.parse
 import urllib3
 import secrets
+import string
+import random
 from datetime import datetime, timedelta
 from marshmallow import ValidationError
 from os import path
@@ -70,8 +72,15 @@ def publish_event(event):
 
     try:
 
-        timestamp = event["started"]
-        title = construct_event_title(event)
+        if "timestamp" in event:
+            timestamp = event["timestamp"]
+        else:
+            timestamp = event["started"]
+
+        if "title" in event:
+            title = event["title"]
+        else:
+            title = construct_event_title(event)
 
         current_app.logger.info("Publishing event: %s: %s" % (timestamp, title))
 
@@ -811,7 +820,18 @@ def authorize():
 
     jwt_token = encode(jwt_payload, current_app.config['JWT_SECRET'], algorithm=current_app.config['JWT_ALGORITHM'])
 
-    current_app.logger.debug("GET /authorize token: %s" % jwt_token)
+    current_app.logger.debug("POST /authorize token: %s" % jwt_token)
+
+    # Report ACCESS event to Fairdata Web Events API with bogus access_id value, to be compatible with metrics reporting
+    # for v2 of the Download Service, allowing reporting to be updated in advance of final production deployment of the 
+    # new v2 of Download Service
+    chars = string.ascii_lowercase + string.digits
+    access_id = f"xxx_{''.join(random.choices(chars, k=6))}"
+    event = {
+        "timestamp": normalize_timestamp(datetime.utcnow()),
+        "title": f"{dataset} / ACCESS / {access_id}",
+    }
+    publish_event(event)
 
     return jsonify(token=jwt_token.decode())
 
