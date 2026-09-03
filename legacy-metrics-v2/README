@@ -1,0 +1,11 @@
+The scripts in this directory are used for extracting and publishing emulated ACCESS events
+per v2 of the Download Service based on legacy authorization event details
+
+Emulated ACCESS events are distinguishable from real ACCESS events such that the access_id
+component will have the prefix "xxx_"
+
+The scripts operate on a snapshot of the production sqlite database file, which should be copied
+from production
+
+Note that no data stored in this subdirectory include any potentially personal identifying information
+and therefore does not require special privacy handling nor does GDPR apply
